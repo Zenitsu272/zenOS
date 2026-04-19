@@ -1,17 +1,6 @@
 from functools import lru_cache
-from typing import Annotated
-
-from pydantic import BeforeValidator, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def _split_cors(value: str | list[str]) -> list[str]:
-    if isinstance(value, list):
-        return value
-    return [origin.strip() for origin in value.split(",") if origin.strip()]
-
-
-CorsList = Annotated[list[str], BeforeValidator(_split_cors)]
 
 
 class Settings(BaseSettings):
@@ -21,7 +10,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-before-deploying"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
-    backend_cors_origins: CorsList = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    backend_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -33,6 +22,10 @@ class Settings(BaseSettings):
         if value.startswith("postgresql://"):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
