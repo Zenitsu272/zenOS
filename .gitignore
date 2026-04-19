@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+zenos.db
+*.db-journal
+*.log
+*.tsbuildinfo
+
+node_modules/
+dist/
+.vite/
+
+.DS_Store
