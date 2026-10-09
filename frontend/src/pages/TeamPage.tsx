@@ -475,27 +475,30 @@ export default function TeamPage() {
           </span>
           zenOS<span className="brand-team">teams</span>
         </Link>
-        <div className="workspace-picker">
-          <span className="workspace-icon">
+        <label className="workspace-picker">
+          <span className="workspace-icon" aria-hidden="true">
             {team?.name.slice(0, 1) ?? "W"}
           </span>
-          <div>
+          <span className="workspace-copy" aria-hidden="true">
             <small>YOUR SPACE</small>
-            <select
-              aria-label="Your space"
-              value={teamId ?? ""}
-              onChange={(e) => switchTeam(Number(e.target.value))}
-            >
-              {!teams.data?.length && <option value="">Choose a space</option>}
-              {teams.data?.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ChevronDown size={14} />
-        </div>
+            <span className="workspace-name">
+              {teams.data?.find((t) => t.id === teamId)?.name ?? "Choose a space"}
+            </span>
+          </span>
+          <ChevronDown size={14} aria-hidden="true" />
+          <select
+            aria-label="Your space"
+            value={teamId ?? ""}
+            onChange={(e) => switchTeam(Number(e.target.value))}
+          >
+            {!teams.data?.length && <option value="">Choose a space</option>}
+            {teams.data?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <p className="nav-label">TOGETHER</p>
         <nav>
           {[
