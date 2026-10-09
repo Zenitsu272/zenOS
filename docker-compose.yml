@@ -15,7 +15,7 @@ services:
     environment:
       ENVIRONMENT: production
       DATABASE_URL: postgresql+psycopg://zenos:zenos@db:5432/zenos
-      SECRET_KEY: local-docker-development-secret
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY to a private random value of at least 32 characters}
       BACKEND_CORS_ORIGINS: http://localhost:5173
     depends_on:
       - db

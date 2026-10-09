@@ -1,9 +1,12 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { BrainCircuit, LogIn } from "lucide-react";
 
 import { login, register } from "../api/auth";
+import { getInvitePath } from "../api/client";
 import { setToken } from "../lib/storage";
+import { useUiStore } from "../store/uiStore";
 
 interface Props {
   mode: "login" | "register";
@@ -11,6 +14,9 @@ interface Props {
 
 export default function AuthPage({ mode }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const next = getInvitePath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +30,10 @@ export default function AuthPage({ mode }: Props) {
     try {
       const response = isRegister ? await register(email, password) : await login(email, password);
       setToken(response.access_token);
-      navigate("/");
+      queryClient.clear();
+      useUiStore.getState().resetPersonalNavigation();
+      localStorage.removeItem("zenos_team");
+      navigate(next ?? "/", { replace: true, state: next ? { joinAfterSignIn: true } : null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to continue");
     } finally {
@@ -42,13 +51,13 @@ export default function AuthPage({ mode }: Props) {
             </span>
             <div>
               <h1 className="text-2xl font-extrabold tracking-normal text-slate-950 dark:text-white">zenOS</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Personal operating system for builders.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">A shared workspace for teams that build.</p>
             </div>
           </div>
           <div className="max-w-2xl">
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">Dashboard</p>
+            <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">A simple place to work together.</p>
             <h2 className="mt-4 text-4xl font-extrabold leading-tight text-slate-950 dark:text-white md:text-6xl">
-              Track internships, learning, projects, and coding prep in one calm command center.
+              Less chasing updates. More getting things done.
             </h2>
           </div>
         </div>
@@ -56,12 +65,14 @@ export default function AuthPage({ mode }: Props) {
         <form onSubmit={onSubmit} className="surface rounded-lg p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-950 dark:text-white">
-              {isRegister ? "Create your workspace" : "Welcome back"}
+              {isRegister ? "Create your account" : "Welcome back"}
             </h2>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {isRegister
-                ? "Default categories and subbranches are created automatically."
-                : "Pick up your priorities where you left them."}
+              {next
+                ? "Sign in or create an account to join the space you were invited to. Your invitation is saved."
+                : isRegister
+                ? "After signing up, create a space or open an invitation link."
+                : "See what needs doing and pick up where you left off."}
             </p>
           </div>
           <div className="space-y-4">
@@ -100,8 +111,8 @@ export default function AuthPage({ mode }: Props) {
           </button>
           <p className="mt-5 text-center text-sm text-slate-500 dark:text-slate-400">
             {isRegister ? "Already have an account?" : "New to zenOS?"}{" "}
-            <Link className="font-semibold text-teal-700 dark:text-teal-300" to={isRegister ? "/login" : "/register"}>
-              {isRegister ? "Log in" : "Register"}
+            <Link className="font-semibold text-teal-700 dark:text-teal-300" to={`${isRegister ? "/login" : "/register"}${next ? `?next=${encodeURIComponent(next)}` : ""}`}>
+              {isRegister ? "Log in" : "Create an account"}
             </Link>
           </p>
         </form>

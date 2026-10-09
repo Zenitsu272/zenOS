@@ -29,19 +29,17 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: Props) 
           checked={task.completed}
           onChange={(event) => onComplete(event.target.checked)}
           className="mt-1 h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-          aria-label={`Mark ${task.title} complete`}
+          aria-label={task.completed ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className={clsx("font-bold text-slate-950 dark:text-white", task.completed && "line-through opacity-60")}>
+            <h3 className={clsx("break-words font-bold text-slate-950 dark:text-white", task.completed && "line-through opacity-60")}>
               {task.title}
             </h3>
-            <span className={`pill ${priorityClasses[task.priority]}`}>{task.priority}</span>
-            <span className="pill bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
-              {task.task_type}
-            </span>
+            <span className={`pill ${priorityClasses[task.priority]}`}>{task.priority} importance</span>
+            {task.task_type === "Long Term" && <span className="pill bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">Longer goal</span>}
           </div>
-          {task.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{task.description}</p>}
+          {task.description && <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-600 dark:text-slate-300">{task.description}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <span>{task.category_name}</span>
             <span>/</span>
@@ -56,23 +54,26 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: Props) 
                 )}
               >
                 <CalendarDays size={13} />
-                {format(dueDate, "MMM d")}
+                {overdue ? "Overdue · " : "Due "}{format(dueDate, "MMM d")}
               </span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 dark:bg-slate-800">
+            {task.estimated_hours > 0 && <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 dark:bg-slate-800">
               <Clock3 size={13} />
               {task.estimated_hours}h
-            </span>
+            </span>}
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${task.progress}%` }} />
-          </div>
+          {!task.completed && task.progress > 0 && <div className="mt-4">
+            <p className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">{task.progress === 100 ? "Ready to mark done" : `${task.progress}% finished`}</p>
+            <div role="progressbar" aria-label={`${task.title} progress`} aria-valuenow={task.progress} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${task.progress}%` }} />
+            </div>
+          </div>}
         </div>
         <div className="flex shrink-0 gap-1">
-          <button className="icon-button" onClick={onEdit} type="button" title="Edit task">
+          <button className="icon-button" onClick={onEdit} type="button" title="Edit task" aria-label={`Edit ${task.title}`}>
             <Pencil size={16} />
           </button>
-          <button className="icon-button" onClick={onDelete} type="button" title="Delete task">
+          <button className="icon-button" onClick={onDelete} type="button" title="Delete task" aria-label={`Delete ${task.title}`}>
             <Trash2 size={16} />
           </button>
         </div>

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, categories, dashboard, subbranches, tasks
+from app.api import teams
 from app.core.config import get_settings
 from app.db import base  # noqa: F401
 from app.db.session import engine
@@ -25,6 +26,7 @@ app.include_router(categories.router)
 app.include_router(subbranches.router)
 app.include_router(tasks.router)
 app.include_router(dashboard.router)
+app.include_router(teams.router)
 
 
 @app.on_event("startup")

@@ -8,7 +8,6 @@ from app.core.config import get_settings
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, Token, UserRead
-from app.services.defaults import create_default_workspace
 
 
 router = APIRouter(tags=["auth"])
@@ -22,8 +21,6 @@ def register(payload: RegisterRequest, db: DbSession) -> Token:
 
     user = User(email=payload.email.lower(), hashed_password=get_password_hash(payload.password))
     db.add(user)
-    db.flush()
-    create_default_workspace(db, user)
     db.commit()
     db.refresh(user)
 

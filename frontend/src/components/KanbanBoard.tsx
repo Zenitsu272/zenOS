@@ -10,9 +10,9 @@ interface Props {
 
 export default function KanbanBoard({ tasks, onComplete, onEdit, onDelete }: Props) {
   const columns = [
-    { title: "Todo", items: tasks.filter((task) => !task.completed && task.progress === 0) },
-    { title: "In Progress", items: tasks.filter((task) => !task.completed && task.progress > 0 && task.progress < 100) },
-    { title: "Done", items: tasks.filter((task) => task.completed) }
+    { title: "To do", empty: "Your next tasks will appear here.", items: tasks.filter((task) => !task.completed && task.progress === 0) },
+    { title: "Doing", empty: "Tasks you've started will appear here.", items: tasks.filter((task) => !task.completed && task.progress > 0) },
+    { title: "Done", empty: "Finished tasks will appear here.", items: tasks.filter((task) => task.completed) }
   ];
 
   return (
@@ -26,6 +26,7 @@ export default function KanbanBoard({ tasks, onComplete, onEdit, onDelete }: Pro
             </span>
           </div>
           <div className="space-y-3">
+            {column.items.length === 0 && <p className="px-2 py-6 text-center text-sm leading-6 text-slate-400 dark:text-slate-500">{column.empty}</p>}
             {column.items.map((task) => (
               <TaskCard
                 key={task.id}

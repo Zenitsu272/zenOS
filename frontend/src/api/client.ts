@@ -1,6 +1,13 @@
 import { clearToken, getToken } from "../lib/storage";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+// Only invite routes can be used as an authentication return destination.
+// Never navigate to an arbitrary URL supplied in the query string.
+export function getInvitePath(value: string | null | undefined): string | null {
+  return value && value.trim() === value && /^\/join\/[A-Za-z0-9_-]{16,64}$/.test(value) ? value : null;
+}
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -9,7 +16,10 @@ type RequestOptions = {
   auth?: boolean;
 };
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const url = new URL(`${API_BASE_URL}${path}`);
   Object.entries(options.query ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
@@ -18,7 +28,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   const headers: HeadersInit = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
   };
   if (options.auth !== false) {
     const token = getToken();
@@ -30,18 +40,26 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const response = await fetch(url, {
     method: options.method ?? "GET",
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && options.auth !== false) {
     clearToken();
+    const next = getInvitePath(window.location.pathname)
+      ?? getInvitePath(new URLSearchParams(window.location.search).get("next"));
+    window.location.assign(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }
 
   if (!response.ok) {
     let message = "Request failed";
     try {
       const data = await response.json();
-      message = data.detail ?? message;
+      message =
+        typeof data.detail === "string"
+          ? data.detail
+          : Array.isArray(data.detail)
+            ? data.detail.map((item: { msg: string }) => item.msg).join("; ")
+            : message;
     } catch {
       message = response.statusText;
     }

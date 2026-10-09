@@ -1,5 +1,5 @@
 from functools import lru_cache
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     backend_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="after")
+    def require_production_secret(self):
+        if self.environment == "production" and (
+            len(self.secret_key) < 32 or self.secret_key == "change-me-before-deploying"
+        ):
+            raise ValueError("Set SECRET_KEY to a private random value of at least 32 characters before running in production")
+        return self
 
     @field_validator("database_url")
     @classmethod

@@ -27,10 +27,13 @@ def get_current_user(db: DbSession, token: Annotated[str, Depends(oauth2_scheme)
         user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError as exc:
+        user_id = int(user_id)
+        if user_id <= 0:
+            raise credentials_exception
+    except (JWTError, ValueError, TypeError) as exc:
         raise credentials_exception from exc
 
-    user = db.get(User, int(user_id))
+    user = db.get(User, user_id)
     if user is None:
         raise credentials_exception
     return user

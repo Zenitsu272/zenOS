@@ -1,121 +1,89 @@
-# zenOS Deployment Checklist
+# Deploy zenOS
 
-This deploys the full stack:
+Update the existing **Vercel frontend** and **Render API** connected to [Zenitsu272/zenOS](https://github.com/Zenitsu272/zenOS). Keep the existing PostgreSQL database and deploy the API before the frontend. The repository includes [render.yaml](render.yaml) and [Vercel routing](frontend/vercel.json).
 
-- Frontend: Vercel
-- Backend: Render
-- Database: Neon Postgres or Supabase Postgres
+Current production: [zen-os-pi.vercel.app](https://zen-os-pi.vercel.app) → [zenos-api.onrender.com](https://zenos-api.onrender.com). The Vercel project is `zenitsu272s-projects/zen-os`, connected to `main`.
 
-## 1. Push to GitHub
+## 1. Prepare the release
 
-Create a GitHub repository and push this project.
+- Run the backend tests with `python -m pytest -q` from `backend` using its development environment, and run `npm ci` followed by `npm run build` from `frontend`.
+- Back up the production database before upgrading. Push the reviewed changes to the GitHub branch connected to both hosting projects.
+- Keep `.env`, database files, credentials, logs, `node_modules`, and build output out of Git. Do not seed demo accounts or tasks in production.
 
-```bash
-git init
-git add .
-git commit -m "Initial zenOS full-stack app"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/zenOS.git
-git push -u origin main
-```
+## 2. Update the Render API
 
-Do not commit `.env`, `node_modules`, `dist`, local SQLite files, or logs.
+Use the existing service with these settings, or apply the included Render blueprint:
 
-## 2. Create the Postgres Database
+| Setting | Value |
+| --- | --- |
+| Root directory | `backend` |
+| Python runtime | 3.12, pinned by `backend/.python-version` |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Health check | `/health` |
 
-### Recommended: Neon
-
-1. Create a Neon project.
-2. Click **Connect**.
-3. Copy the connection string.
-4. Use the pooled connection string if you expect many concurrent users.
-
-Neon URLs look like:
-
-```env
-postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
-```
-
-The backend automatically converts this to SQLAlchemy's `psycopg` driver URL.
-
-### Alternative: Supabase
-
-1. Create a Supabase project.
-2. Open **Connect** in the project dashboard.
-3. For Render, prefer the pooler/session connection string if direct IPv6 is unavailable.
-4. Copy the connection string and replace `[YOUR-PASSWORD]`.
-
-## 3. Deploy Backend on Render
-
-Use the included `render.yaml` when creating the service from GitHub, or configure manually:
-
-- Service type: Web Service
-- Root directory: `backend`
-- Build command: `pip install -r requirements.txt`
-- Start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Health check path: `/health`
-
-Set these environment variables:
+Set these variables on the backend service:
 
 ```env
 ENVIRONMENT=production
-DATABASE_URL=your_postgres_connection_string
-SECRET_KEY=generate_a_long_random_secret
-BACKEND_CORS_ORIGINS=https://your-vercel-app.vercel.app
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
+SECRET_KEY=YOUR_PRIVATE_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS
+BACKEND_CORS_ORIGINS=https://zen-os-pi.vercel.app
 ```
 
-After the first backend deploy, open:
+Use the existing PostgreSQL connection string from your provider. The backend accepts `postgres://`, `postgresql://`, and `postgresql+psycopg://` URLs. Do not use local SQLite as the hosted production database.
 
-```text
-https://your-render-service.onrender.com/health
-```
+Keep the existing private signing secret when updating a working service. For a new service, the blueprint generates `SECRET_KEY`; a manually configured value must be random and at least 32 characters. Production startup rejects short or default secrets. Changing the secret signs everyone out. Keep database credentials and this secret only in backend configuration; never place them in a frontend `VITE_` variable.
 
-You should see:
+`BACKEND_CORS_ORIGINS` is a comma-separated list of exact frontend origins, including `https://`, with no path or trailing slash. Include the production custom domain and Vercel domain if both are used. Add a specific preview origin only when that preview needs API access; do not use `*`. Redeploy the API after environment changes.
 
-```json
-{"status":"ok"}
-```
+### Database migrations
 
-## 4. Deploy Frontend on Vercel
+The start command applies migrations before starting the API. This release must reach **`0005_space_meetings`**:
 
-Create a Vercel project from the same GitHub repo:
+| Migration | Result |
+| --- | --- |
+| `0001_initial` | Accounts and personal tasks |
+| `0002_team_workspaces` | Shared spaces, members, tasks, and work plans |
+| `0003_space_projects` | Space owners, expiring invites, and projects; existing shared work moves into General |
+| `0004_empty_personal_workspace` | Removes only unchanged, unused sample folders/lists; preserves customized or used content |
+| `0005_space_meetings` | Space descriptions, project meetings, and retained task-change history |
 
-- Framework preset: Vite
-- Root directory: `frontend`
-- Build command: `npm run build`
-- Output directory: `dist`
+Check the deploy logs for a successful upgrade. If the service shell is available, run `alembic current` and confirm `0005_space_meetings (head)`. Do not bypass migration failures by stamping the database or resetting it.
 
-Set:
+After deployment, [the API health check](https://zenos-api.onrender.com/health) should return `{"status":"ok"}`. This checks that the API is running; the smoke checks below verify authentication and database-backed features.
+
+## 3. Update the Vercel frontend
+
+Use the existing project with:
+
+| Setting | Value |
+| --- | --- |
+| Framework | Vite |
+| Root directory | `frontend` |
+| Install command | `npm ci` |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+
+Set the production frontend environment variable to the deployed API origin, without a trailing slash:
 
 ```env
-VITE_API_URL=https://your-render-service.onrender.com
+VITE_API_URL=https://zenos-api.onrender.com
 ```
 
-Deploy the frontend.
+Deploy or rebuild after changing it: Vite embeds this value in the frontend build. The included rewrite to `/index.html` must remain enabled so direct visits and reloads at `/login`, `/personal`, and `/join/INVITE_CODE` work.
 
-## 5. Final CORS Update
+Make sure the final frontend origin matches Render's CORS configuration. Share invite links copied from the hosted frontend; `localhost` links work only on the computer that created them.
 
-Once Vercel gives you the final frontend URL, go back to Render and set:
+## 4. Smoke-check the hosted app
 
-```env
-BACKEND_CORS_ORIGINS=https://your-vercel-app.vercel.app
-```
+Use test accounts and test content:
 
-If you also want local development to work against the deployed backend:
+1. **Authentication and personal work:** Register, sign out, and sign in. A new account's `/personal` workspace is empty. Create a folder, a list, and a task with no due date; confirm it appears in All tasks, survives reload, and moves to Done when completed.
+2. **Spaces and projects:** Create a space, edit its name/description, and add two projects. Create a task in each; confirm their boards stay separate and existing space data remains after reload.
+3. **Invitations and access:** Copy an invite from People. In a separate browser session, open it, register or log in, and confirm it opens the invited space. Confirm this member can update project tasks but cannot edit space settings or manage invitations. A separate, uninvited account must not see or fetch that space.
+4. **Revocation:** Replace the invite link and confirm the previous link no longer joins. Remove the test member and confirm their access is blocked even while signed in. Invite links expire after seven days; replacing a link creates a fresh one.
+5. **Meetings:** Schedule a project meeting with an agenda and call link. Reload and verify its local start/end times. Save notes and a task status change, complete the meeting, and confirm both the board and Completed meeting history update. Add a further task update from the completed meeting; earlier history must remain unchanged. Tasks in finished work plans must remain protected.
+6. **Navigation:** Reload a project screen, `/personal`, and an invitation URL directly. Confirm no SPA routing errors, failed API requests, or CORS errors appear.
 
-```env
-BACKEND_CORS_ORIGINS=https://your-vercel-app.vercel.app,http://localhost:5173,http://127.0.0.1:5173
-```
-
-Save and redeploy the backend.
-
-## 6. Smoke Test Production
-
-1. Open the Vercel URL.
-2. Register a new account.
-3. Confirm the default categories appear.
-4. Create a task.
-5. Check the task complete.
-6. Confirm dashboard counts update.
-
-If registration works, the frontend, backend, auth, database, migrations, and CORS are all wired correctly.
+Invitations are shared links, not automatic emails. Meeting links open the chosen external service; zenOS does not create external calls, send calendar invitations, or deliver reminders. Email verification, password recovery, and SSO are not included. See [README.md](README.md) for the full feature and access model.
