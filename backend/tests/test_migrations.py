@@ -149,3 +149,75 @@ def test_personal_cleanup_only_removes_exact_unused_starter_trees(tmp_path):
         assert connection.scalar(text("SELECT count(*) FROM categories WHERE user_id=1")) == 0
         assert connection.scalar(text("SELECT count(*) FROM subbranches WHERE user_id=1")) == 0
     engine.dispose()
+
+
+def test_empty_default_project_cleanup_preserves_user_projects_and_all_referenced_work(tmp_path):
+    database = tmp_path / "project_cleanup.db"
+    url = "sqlite:///" + database.as_posix()
+    env = {**os.environ, "DATABASE_URL": url, "ENVIRONMENT": "test"}
+    backend = Path(__file__).resolve().parents[1]
+
+    def migrate(*args):
+        result = subprocess.run([sys.executable, "-m", "alembic", *args], cwd=backend, env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+
+    migrate("upgrade", "0005_space_meetings")
+    engine = create_engine(url)
+    old_description = "A place for your team's first tasks."
+    migrated_description = "Your existing tasks and work plans."
+    removable = set()
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO users (id,email,hashed_password) VALUES (1,'project-owner@example.com','hash')"))
+        for team_id in range(1, 15):
+            connection.execute(text("INSERT INTO teams (id,name,key,invite_code,owner_id,invite_expires_at) VALUES (:id,:name,:key,:code,1,'2027-01-01 00:00:00')"), {"id": team_id, "name": f"Space {team_id}", "key": f"SP{team_id}", "code": f"existing-invite-code-{team_id}"})
+            connection.execute(text("INSERT INTO memberships (team_id,user_id,role) VALUES (:team_id,1,'admin')"), {"team_id": team_id})
+
+        def project(team_id, name="General", description=old_description):
+            return connection.execute(text("INSERT INTO projects (team_id,name,description) VALUES (:team_id,:name,:description)"), {"team_id": team_id, "name": name, "description": description}).lastrowid
+
+        def issue(team_id, project_id, title):
+            connection.execute(text("INSERT INTO issues (team_id,project_id,reporter_id,title,description,acceptance_criteria,status,priority,issue_type,points,label) VALUES (:team_id,:project_id,1,:title,'','','scheduled','Medium','Task',0,'')"), {"team_id": team_id, "project_id": project_id, "title": title})
+
+        def plan(team_id, project_id, active_project_id=None):
+            connection.execute(text("INSERT INTO sprints (team_id,project_id,name,goal,start_date,end_date,status,active_project_id,retrospective) VALUES (:team_id,:project_id,'Existing plan','','2026-10-10','2026-10-17',:status,:active_project_id,'')"), {"team_id": team_id, "project_id": project_id, "active_project_id": active_project_id, "status": "active" if active_project_id else "planned"})
+
+        # Both historical automatic descriptions are recognized, without deleting their spaces.
+        removable.add(project(1))
+        removable.add(project(2, description=migrated_description))
+        issue(3, project(3), "Keep this task and its project")
+        plan(4, project(4))
+        meeting_project = project(5, description=migrated_description)
+        connection.execute(text("INSERT INTO meetings (team_id,project_id,title,agenda,meeting_url,starts_at,ends_at,status,notes,created_by) VALUES (5,:project_id,'Keep this meeting','','','2026-10-10 10:00:00','2026-10-10 10:30:00','scheduled','',1)"), {"project_id": meeting_project})
+
+        # Same-name user projects and manually recreated exact defaults must survive.
+        project(6, description="")
+        project(7)
+        connection.execute(text("INSERT INTO team_activity (team_id,user_id,message) VALUES (7,1,'created project General')"))
+        project(8, name="First user project", description="")
+        project(8)
+        active_reference = project(9)
+        plan(9, project(9, name="Plan project", description=""), active_reference)
+        project(10, name="Renamed project")
+        project(11, description="Build a better team workspace.")
+
+        # Even inconsistent legacy references from another space protect existing work.
+        foreign_reference = project(12)
+        issue(13, foreign_reference, "Keep legacy cross-space reference")
+
+        # Deleting the first candidate must not turn the second into another cleanup candidate.
+        removable.add(project(14))
+        project(14, description=migrated_description)
+
+        snapshots = {}
+        for table in ["projects", "teams", "memberships", "issues", "sprints", "meetings", "team_activity"]:
+            snapshots[table] = [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings() if table != "projects" or row["id"] not in removable]
+
+    migrate("upgrade", "head")
+    migrate("check")
+    with engine.connect() as connection:
+        for table, expected in snapshots.items():
+            assert [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings()] == expected, table
+        assert connection.scalar(text("SELECT count(*) FROM projects WHERE team_id IN (1,2)")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM projects WHERE team_id=14")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM teams")) == 14
+    engine.dispose()

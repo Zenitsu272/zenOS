@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from test_team_workspaces import client, setup
+from test_team_workspaces import client, create_project, setup
 
 
 def project_context(client, admin, team):
@@ -100,6 +100,7 @@ def test_meeting_review_validates_every_task_before_saving_any_changes(client, s
     root, project, meetings = project_context(client, admin, team)
     other_project = client.post(root + "/projects", headers=admin, json={"name": "Another project"}).json()
     foreign_team = client.post("/teams", headers=outsider, json={"name": "Private space", "key": "PRV"}).json()
+    create_project(client, foreign_team, outsider, "Private project")
     foreign_task = client.post(f"/teams/{foreign_team['id']}/issues", headers=outsider, json={"title": "Private task", "status": "scheduled"}).json()
     other_task = client.post(root + "/issues", headers=member, json={"title": "Other project task", "project_id": other_project["id"], "status": "scheduled"}).json()
     valid = client.post(root + "/issues", headers=member, json={"title": "Keep unchanged on error", "project_id": project["id"], "status": "scheduled"}).json()
@@ -143,7 +144,7 @@ def test_meeting_actions_require_membership_and_match_space_project_and_meeting(
     assert client.put(other_meetings + f"/{meeting['id']}", headers=member, json=schedule()).status_code == 404
     assert client.post(other_meetings + f"/{meeting['id']}/review", headers=member, json={"notes": "Wrong project"}).status_code == 404
     foreign = client.post("/teams", headers=outsider, json={"name": "Foreign space", "key": "EXT"}).json()
-    foreign_project = client.get(f"/teams/{foreign['id']}/workspace", headers=outsider).json()["projects"][0]
+    foreign_project = create_project(client, foreign, outsider, "Foreign project")
     for invalid_path, headers in [
         (root + f"/projects/{foreign_project['id']}/meetings", admin),
         (f"/teams/{foreign['id']}/projects/{project['id']}/meetings", outsider),

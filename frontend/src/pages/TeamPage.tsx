@@ -50,6 +50,8 @@ const columns: { status: Status; name: string; color: string }[] = [
   { status: "ongoing", name: "Doing", color: "purple" },
   { status: "completed", name: "Done", color: "green" },
 ];
+const projectPages = ["Tasks", "Meetings", "Later", "Progress", "Plans"];
+const projectModals = ["issue", "sprint", "complete", "import"];
 const inColumn = (status: Status, column: Status) =>
   status === column || (column === "ongoing" && status === "review");
 const planLabel = (name: string) => name.replace(/^Sprint\b/i, "Plan");
@@ -211,8 +213,22 @@ export default function TeamPage() {
     !!team?.invite_expires_at &&
     new Date(team.invite_expires_at).getTime() <= Date.now();
   useEffect(() => {
-    if (!data?.projects.length || !teamId) return;
+    if (!data || !teamId) return;
+    if (!data.projects.length) {
+      setProjectId(null);
+      localStorage.removeItem(`zenos_project_${teamId}`);
+      setView((current) => projectPages.includes(current) ? "Projects" : current);
+      setModal((current) => current && projectModals.includes(current) ? null : current);
+      setEditing(null);
+      setClosingSprint(null);
+      return;
+    }
     if (!data.projects.some((p) => p.id === projectId)) {
+      if (projectId !== null) {
+        setModal((current) => current && projectModals.includes(current) ? null : current);
+        setEditing(null);
+        setClosingSprint(null);
+      }
       const remembered = Number(
         localStorage.getItem(`zenos_project_${teamId}`),
       );
@@ -283,6 +299,10 @@ export default function TeamPage() {
     }
   }
   function openIssue(issue?: Issue, status: Status = "scheduled") {
+    if (!currentProject) {
+      setView("Projects");
+      return;
+    }
     setError("");
     setEditing(issue ?? null);
     setComment("");
@@ -330,6 +350,10 @@ export default function TeamPage() {
     setError("");
   }
   function openModal(name: string) {
+    if (projectModals.includes(name) && !currentProject) {
+      setView("Projects");
+      return;
+    }
     setError("");
     setModal(name);
   }
@@ -485,6 +509,8 @@ export default function TeamPage() {
             <button
               key={n.name}
               className={view === n.name ? "active" : ""}
+              disabled={projectPages.includes(n.name) && !currentProject}
+              title={projectPages.includes(n.name) && !currentProject ? "Available after the first project is created" : undefined}
               onClick={() => setView(n.name)}
             >
               <n.icon size={18} />
@@ -502,6 +528,8 @@ export default function TeamPage() {
         <nav>
           <button
             className={view === "Plans" ? "active" : ""}
+            disabled={!currentProject}
+            title={!currentProject ? "Available after the first project is created" : undefined}
             onClick={() => setView("Plans")}
           >
             <CalendarDays size={18} />
@@ -621,7 +649,7 @@ export default function TeamPage() {
                   <Users size={16} /> Invite people
                 </button>
               )}
-              {view !== "Projects" &&
+              {currentProject && view !== "Projects" &&
                 view !== "People" &&
                 view !== "Meetings" && (
                   <button
@@ -772,10 +800,21 @@ export default function TeamPage() {
                         onClick={() => openModal("project")}
                       >
                         <Plus size={16} />
-                        New project
+                        {projects.length ? "New project" : "Create first project"}
                       </button>
                     )}
                   </div>
+                  {!projects.length && (
+                    <div className="empty-state compact">
+                      <FolderKanban size={32} />
+                      <h2>{isOwner ? "Create your first project" : "No projects yet"}</h2>
+                      <p>
+                        {isOwner
+                          ? "Give your team's work a name. Each project has its own tasks, meetings, and work plans."
+                          : "Ask your space owner to create the first project. It will appear here when it's ready."}
+                      </p>
+                    </div>
+                  )}
                   <div className="project-grid">
                     {projects.map((p) => {
                       const tasks = (data?.issues ?? []).filter(
@@ -844,7 +883,7 @@ export default function TeamPage() {
                   }
                 />
               )}
-              {view === "Tasks" && (
+              {view === "Tasks" && currentProject && (
                 <>
                   <section className="simple-intro">
                     <span className="intro-icon">
@@ -896,7 +935,7 @@ export default function TeamPage() {
                   </div>
                 </>
               )}
-              {(view === "Tasks" || view === "Later") && (
+              {currentProject && (view === "Tasks" || view === "Later") && (
                 <>
                   <div className="board-toolbar">
                     <label className="board-search">
@@ -968,7 +1007,7 @@ export default function TeamPage() {
                   </div>
                 </>
               )}
-              {view === "Tasks" && (
+              {view === "Tasks" && currentProject && (
                 <>
                   <section className="kanban-grid">
                     {columns.map((col) => (
@@ -1055,7 +1094,7 @@ export default function TeamPage() {
                   </div>
                 </>
               )}
-              {view === "Later" && (
+              {view === "Later" && currentProject && (
                 <section className="panel">
                   <div className="panel-heading">
                     <div>
@@ -1131,7 +1170,7 @@ export default function TeamPage() {
                   )}
                 </section>
               )}
-              {view === "Plans" && (
+              {view === "Plans" && currentProject && (
                 <>
                   <div className="section-heading">
                     <h2>
@@ -1255,7 +1294,7 @@ export default function TeamPage() {
                   )}
                 </>
               )}
-              {view === "Progress" && (
+              {view === "Progress" && currentProject && (
                 <div className="reports-grid">
                   <section className="panel">
                     <div className="panel-heading">
@@ -1434,7 +1473,7 @@ export default function TeamPage() {
           {notice}
         </div>
       )}
-      {modal && (
+      {modal && (!projectModals.includes(modal) || currentProject) && (
         <Modal
           title={
             modal === "issue"

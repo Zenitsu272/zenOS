@@ -40,12 +40,19 @@ def account(client, name):
     return {"Authorization": "Bearer " + result.json()["access_token"]}
 
 
+def create_project(client, team, owner, name="Launch"):
+    response = client.post(f"/teams/{team['id']}/projects", headers=owner, json={"name": name})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 @pytest.fixture()
 def setup(client):
     admin = account(client, "admin")
     member = account(client, "member")
     outsider = account(client, "outsider")
     team = client.post("/teams", headers=admin, json={"name": "Product team", "key": "ZEN"}).json()
+    create_project(client, team, admin)
     joined = client.post("/teams/join", headers=member, json={"code": team["invite_code"]})
     assert joined.status_code == 200
     assert joined.json()["invite_code"] is None
@@ -110,6 +117,7 @@ def test_foreign_relations_and_invalid_inputs_rejected(client, setup):
         response = client.post(root + "/issues", headers=member, json={"title": "Task", **invalid})
         assert response.status_code == 422, response.text
     foreign_team = client.post("/teams", headers=outsider, json={"name": "Private", "key": "PRV"}).json()
+    create_project(client, foreign_team, outsider, "Private project")
     sprint = client.post(f"/teams/{foreign_team['id']}/sprints", headers=outsider, json={"name": "Private sprint", "start_date": "2026-10-09", "end_date": "2026-10-20"}).json()
     assert client.post(root + "/issues", headers=member, json={"title": "Task", "sprint_id": sprint["id"], "status": "scheduled"}).status_code == 422
 
@@ -214,7 +222,7 @@ def test_space_projects_are_shared_and_owned_by_the_creator(client, setup):
     state = client.get(root + "/workspace", headers=member).json()
     assert team["owner_id"] == owner_id
     assert state["team"]["owner_id"] == owner_id
-    assert [(p["name"], p["team_id"]) for p in state["projects"]] == [("General", team["id"])]
+    assert [(p["name"], p["team_id"]) for p in state["projects"]] == [("Launch", team["id"])]
     assert client.post(root + "/projects", headers=member, json={"name": "Unauthorized"}).status_code == 403
     project = client.post(root + "/projects", headers=admin, json={"name": "Website", "description": "Launch our site"})
     assert project.status_code == 201, project.text
@@ -223,17 +231,54 @@ def test_space_projects_are_shared_and_owned_by_the_creator(client, setup):
     assert issue.status_code == 201, issue.text
     assert issue.json()["project_id"] == project["id"]
     shared = client.get(root + "/workspace", headers=member).json()
-    assert {p["name"] for p in shared["projects"]} == {"General", "Website"}
+    assert {p["name"] for p in shared["projects"]} == {"Launch", "Website"}
     assert shared["issues"][0]["id"] == issue.json()["id"]
     assert {t["id"] for t in client.get("/teams", headers=member).json()} == {team["id"]}
     assert client.get("/teams", headers=outsider).json() == []
-    # Old API clients still create in General; an omitted project during edit preserves its location.
+    # Old API clients use the first existing project; omitted project during edit preserves its location.
     default_task = client.post(root + "/issues", headers=admin, json={"title": "Default project"}).json()
     assert default_task["project_id"] == state["projects"][0]["id"]
     updated = client.put(root + f"/issues/{issue.json()['id']}", headers=member, json={"title": "Write the homepage"})
     assert updated.status_code == 200, updated.text
     assert updated.json()["project_id"] == project["id"]
     assert client.put(root + f"/issues/{issue.json()['id']}", headers=member, json={"title": "Move task", "project_id": default_task["project_id"]}).status_code == 422
+
+
+def test_new_space_stays_empty_until_the_owner_creates_a_project(client):
+    owner = account(client, "empty_space_owner")
+    member = account(client, "empty_space_member")
+    response = client.post("/teams", headers=owner, json={"name": "Our space", "key": "OUR"})
+    assert response.status_code == 201, response.text
+    team = response.json()
+    root = f"/teams/{team['id']}"
+    assert client.post("/teams/join", headers=member, json={"code": team["invite_code"]}).status_code == 200
+    for user in [owner, member]:
+        state = client.get(root + "/workspace", headers=user).json()
+        assert state["projects"] == []
+        assert state["issues"] == []
+        assert state["sprints"] == []
+    requests = [
+        ("/issues", {"title": "Wait for a project"}, member),
+        ("/sprints", {"name": "First plan", "start_date": "2026-10-10", "end_date": "2026-10-17"}, owner),
+        ("/import", {"csv": "Task\nImported task"}, member),
+    ]
+    for route, payload, user in requests:
+        response = client.post(root + route, headers=user, json=payload)
+        assert response.status_code == 422, response.text
+        assert response.json()["detail"] == "Create a project in this space before adding tasks or work plans"
+    assert client.post(root + "/projects", headers=member, json={"name": "Not allowed"}).status_code == 403
+    assert client.post(root + "/issues", headers=owner, json={"title": "Unknown project", "project_id": 99999}).status_code == 422
+    assert client.get(root + "/workspace", headers=owner).json()["projects"] == []
+    project = create_project(client, team, owner, "Our first project")
+    for route, payload, user in requests:
+        response = client.post(root + route, headers=user, json=payload)
+        assert response.status_code == 201, response.text
+    state = client.get(root + "/workspace", headers=member).json()
+    assert [(item["id"], item["name"]) for item in state["projects"]] == [(project["id"], "Our first project")]
+    assert {issue["project_id"] for issue in state["issues"]} == {project["id"]}
+    assert {plan["project_id"] for plan in state["sprints"]} == {project["id"]}
+    assert len(state["issues"]) == 2
+    assert len(state["sprints"]) == 1
 
 
 def test_each_project_runs_its_own_plan_and_cannot_mix_tasks(client, setup):
@@ -268,7 +313,7 @@ def test_project_scoped_csv_import_and_foreign_project_rejection(client, setup):
     root = f"/teams/{team['id']}"
     project = client.post(root + "/projects", headers=admin, json={"name": "Events"}).json()
     foreign = client.post("/teams", headers=outsider, json={"name": "Private space", "key": "PVT"}).json()
-    foreign_project = client.get(f"/teams/{foreign['id']}/workspace", headers=outsider).json()["projects"][0]
+    foreign_project = create_project(client, foreign, outsider, "Private project")
     plan = {"name": "Plan", "start_date": "2026-10-09", "end_date": "2026-10-23"}
     for project_id in [foreign_project["id"], 99999]:
         for route, payload in [("/issues", {"title": "Intrusion"}), ("/sprints", plan), ("/import", {"csv": "Task\nIntrusion"})]:

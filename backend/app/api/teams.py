@@ -66,6 +66,8 @@ def renew_invite(team):
 def resolve_project(db, team_id, project_id=None):
     if project_id is None:
         project = db.scalar(select(Project).where(Project.team_id == team_id).order_by(Project.id))
+        if project is None:
+            raise HTTPException(422, "Create a project in this space before adding tasks or work plans")
     else:
         project = db.get(Project, project_id)
     if not project or project.team_id != team_id:
@@ -152,7 +154,6 @@ def create_team(payload: TeamCreate, db: DbSession, user: CurrentUser):
     db.flush()
     member = Membership(team_id=team.id, user_id=user.id, role="admin")
     db.add(member)
-    db.add(Project(team_id=team.id, name="General", description="A place for your team's first tasks."))
     log(db, team.id, user.id, "created the space")
     db.commit()
     return team_read(team, member)
