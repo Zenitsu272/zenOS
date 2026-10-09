@@ -1,9 +1,11 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { BrainCircuit, LogIn } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BrainCircuit, Loader2, LogIn, RefreshCw } from "lucide-react";
 
-import { login, register } from "../api/auth";
+import { getAuthConfig, login, register } from "../api/auth";
+import type { TokenResponse } from "../api/auth";
+import EmailCodeSignIn from "../components/EmailCodeSignIn";
 import { getInvitePath } from "../api/client";
 import { setToken } from "../lib/storage";
 import { useUiStore } from "../store/uiStore";
@@ -22,18 +24,24 @@ export default function AuthPage({ mode }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isRegister = mode === "register";
+  const config = useQuery({ queryKey: ["auth-config"], queryFn: getAuthConfig, retry: false, staleTime: 0, gcTime: 0 });
+
+  function authenticated(response: TokenResponse) {
+    setToken(response.access_token);
+    queryClient.clear();
+    useUiStore.getState().resetPersonalNavigation();
+    localStorage.removeItem("zenos_team");
+    navigate(next ?? "/", { replace: true, state: next ? { joinAfterSignIn: true } : null });
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading || config.data?.method !== "password") return;
     setError(null);
     setLoading(true);
     try {
       const response = isRegister ? await register(email, password) : await login(email, password);
-      setToken(response.access_token);
-      queryClient.clear();
-      useUiStore.getState().resetPersonalNavigation();
-      localStorage.removeItem("zenos_team");
-      navigate(next ?? "/", { replace: true, state: next ? { joinAfterSignIn: true } : null });
+      authenticated(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to continue");
     } finally {
@@ -54,7 +62,7 @@ export default function AuthPage({ mode }: Props) {
               <p className="text-sm text-slate-500 dark:text-slate-400">A shared workspace for teams that build.</p>
             </div>
           </div>
-          <div className="max-w-2xl">
+          <div className="hidden max-w-2xl lg:block">
             <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">A simple place to work together.</p>
             <h2 className="mt-4 text-4xl font-extrabold leading-tight text-slate-950 dark:text-white md:text-6xl">
               Less chasing updates. More getting things done.
@@ -62,7 +70,10 @@ export default function AuthPage({ mode }: Props) {
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="surface rounded-lg p-6">
+        {config.isPending ? <section className="surface flex min-h-64 items-center justify-center gap-3 rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400" role="status"><Loader2 size={20} className="animate-spin" />Getting sign-in ready…</section>
+          : config.isError ? <section className="surface rounded-2xl p-6 sm:p-8"><h2 className="text-2xl font-bold text-slate-950 dark:text-white">Sign-in is unavailable</h2><p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400" role="alert">We couldn't load sign-in settings. Please try again.</p><button className="primary-button mt-5" type="button" disabled={config.isFetching} onClick={() => void config.refetch()}>{config.isFetching ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}{config.isFetching ? "Checking…" : "Try again"}</button></section>
+          : config.data.method === "email_otp" ? <EmailCodeSignIn next={next} onAuthenticated={authenticated} />
+          : config.data.method === "password" ? <form onSubmit={onSubmit} className="surface rounded-lg p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-950 dark:text-white">
               {isRegister ? "Create your account" : "Welcome back"}
@@ -101,7 +112,7 @@ export default function AuthPage({ mode }: Props) {
             </label>
           </div>
           {error && (
-            <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300">
+            <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300">
               {error}
             </p>
           )}
@@ -115,7 +126,7 @@ export default function AuthPage({ mode }: Props) {
               {isRegister ? "Log in" : "Create an account"}
             </Link>
           </p>
-        </form>
+        </form> : null}
       </section>
     </main>
   );

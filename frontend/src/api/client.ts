@@ -16,6 +16,21 @@ type RequestOptions = {
   auth?: boolean;
 };
 
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public retryAfterSeconds: number | null = null) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function retryAfterSeconds(value: string | null): number | null {
+  if (!value?.trim()) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return seconds >= 0 ? Math.ceil(seconds) : null;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, Math.ceil((date - Date.now()) / 1000)) : null;
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
@@ -63,7 +78,7 @@ export async function apiRequest<T>(
     } catch {
       message = response.statusText;
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status, retryAfterSeconds(response.headers.get("Retry-After")));
   }
 
   if (response.status === 204) {

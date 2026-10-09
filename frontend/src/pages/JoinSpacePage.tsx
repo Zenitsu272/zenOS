@@ -107,8 +107,8 @@ export default function JoinSpacePage() {
                 </>
               ) : (
                 <>
-                  <Link to={`/register${next}`} className="primary-button w-full py-3">Create an account and join <ArrowRight size={17} /></Link>
-                  <p className="mt-4 text-center text-sm text-slate-500">Already have an account? <Link to={`/login${next}`} className="font-semibold text-teal-700 dark:text-teal-300">Log in and join</Link></p>
+                  <Link to={`/login${next}`} className="primary-button w-full py-3">Continue to join <ArrowRight size={17} /></Link>
+                  <p className="mt-4 text-center text-sm text-slate-500">Sign in or create an account to accept this invitation.</p>
                 </>
               )}
               <p className="mt-6 text-xs leading-5 text-slate-400">This invitation gives you access to this space and its projects.</p>
