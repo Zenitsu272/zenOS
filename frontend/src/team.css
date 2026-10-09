@@ -296,11 +296,15 @@
   color: #9291a1;
 }
 .breadcrumb {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 13px;
 }
 .breadcrumb b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: #676579;
   font-weight: 500;
 }
@@ -312,6 +316,12 @@
   align-items: center;
   gap: 10px;
   font-size: 9px;
+  flex-shrink: 0;
+}
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 .topbar-right > .icon-btn {
   margin-left: 12px;
@@ -1659,7 +1669,17 @@
     grid-template-columns: 1fr;
   }
   .topbar-right {
+    gap: 0;
+  }
+  .topbar-right .sync-status,
+  .topbar-right > .icon-btn {
     display: none;
+  }
+  .topbar {
+    gap: 12px;
+  }
+  .breadcrumb {
+    gap: 6px;
   }
   .page-heading h1 {
     font-size: 26px;

@@ -32,6 +32,8 @@ import {
 import { apiRequest } from "../api/client";
 import { getMe } from "../api/auth";
 import { clearToken } from "../lib/storage";
+import { useUiStore } from "../store/uiStore";
+import AccountMenu from "../components/AccountMenu";
 import ProjectMeetings from "../components/ProjectMeetings";
 import type {
   Issue,
@@ -328,6 +330,13 @@ export default function TeamPage() {
     );
     setModal("issue");
   }
+  function logout() {
+    clearToken();
+    qc.clear();
+    useUiStore.getState().resetPersonalNavigation();
+    localStorage.removeItem("zenos_team");
+    navigate("/login", { replace: true });
+  }
   function switchTeam(id: number) {
     setTeamId(id);
     setProjectId(null);
@@ -563,11 +572,7 @@ export default function TeamPage() {
           </div>
           <button
             className="profile"
-            onClick={() => {
-              clearToken();
-              qc.clear();
-              navigate("/login");
-            }}
+            onClick={logout}
           >
             <Avatar member={me.data ? { ...me.data, role: "" } : undefined} />
             <span>
@@ -585,8 +590,10 @@ export default function TeamPage() {
             <span>/</span> {view}
           </div>
           <div className="topbar-right">
-            <span className="sync-dot" />
-            Updates automatically
+            <span className="sync-status">
+              <span className="sync-dot" />
+              Updates automatically
+            </span>
             <button
               className="icon-btn"
               aria-label="How it works"
@@ -594,10 +601,12 @@ export default function TeamPage() {
             >
               <CircleHelp size={18} />
             </button>
-            <Avatar
-              member={me.data ? { ...me.data, role: "" } : undefined}
-              small
-            />
+            <AccountMenu user={me.data} onLogout={logout}>
+              <Avatar
+                member={me.data ? { ...me.data, role: "" } : undefined}
+                small
+              />
+            </AccountMenu>
           </div>
         </header>
         <div className="team-content">
