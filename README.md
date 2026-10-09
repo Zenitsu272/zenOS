@@ -12,7 +12,9 @@ To invite someone, the owner copies the space's invite link and sends it to them
 
 Invite links last **7 days**. Anyone holding a valid link can join, so share it only with intended teammates. Replacing the link invalidates the old one immediately. Removing a member also replaces the link and immediately blocks that person's access to the space, even if they are still signed in. Their account and previous task discussions remain; they could join again only with a new valid invite. An expired invite does not remove people who already joined.
 
-Authentication uses email/password accounts with hashed passwords and signed, expiring login tokens. The API checks both the signed-in user and their current space membership on every protected request. The public invite preview returns only the space name, ID, and invite expiry, never tasks, people, or discussions. Email verification, password recovery, SSO, and automatic invitation emails are not included.
+When email sign-in is enabled, enter your email and the six-digit code sent by **ZenOS** through Brevo. The code expires after 10 minutes, can be used once, and can be resent after 60 seconds. The same flow creates a new account or opens an existing one; an account is created only after verification. Existing accounts keep their spaces, projects, meetings, and personal tasks. An invitation stays saved while you sign in.
+
+The API checks both the signed-in user and their current space membership on every protected request. Login tokens are signed and expire. The public invite preview returns only the space name, ID, and invite expiry, never tasks, people, or discussions. Automatic invitation emails and SSO are not included. Password sign-in remains available only when the backend explicitly uses `AUTH_MODE=password`, which supports local demo accounts and deployment before Brevo is configured. `AUTH_MODE=otp` disables password registration and login. See [DEPLOYMENT.md](DEPLOYMENT.md) for activation.
 
 ## Simple everyday workflow
 

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
@@ -9,6 +9,15 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class RequestCode(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    email: EmailStr
+
+
+class VerifyCode(RequestCode):
+    code: str = Field(pattern=r"^[0-9]{6}$", min_length=6, max_length=6)
 
 
 class Token(BaseModel):

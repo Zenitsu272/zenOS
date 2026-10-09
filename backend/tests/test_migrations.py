@@ -53,8 +53,11 @@ def test_upgrade_preserves_personal_and_legacy_space_data_and_matches_models(tmp
         assert connection.scalar(text("SELECT message FROM team_activity WHERE id=1")) == "created current work"
         assert connection.scalar(text("SELECT count(*) FROM meetings")) == 0
         assert connection.scalar(text("SELECT count(*) FROM meeting_task_updates")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM otp_challenges")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM auth_rate_limits")) == 0
     inspector = inspect(engine)
-    assert {"teams", "projects", "issues", "memberships", "sprints", "meetings", "meeting_task_updates"}.issubset(inspector.get_table_names())
+    assert {"teams", "projects", "issues", "memberships", "sprints", "meetings", "meeting_task_updates", "otp_challenges", "auth_rate_limits"}.issubset(inspector.get_table_names())
+    assert "code" not in {column["name"] for column in inspector.get_columns("otp_challenges")}
     issue_reference = next(foreign_key for foreign_key in inspector.get_foreign_keys("meeting_task_updates") if foreign_key["constrained_columns"] == ["issue_id"])
     assert issue_reference["options"]["ondelete"] == "SET NULL"
     migrate("downgrade", "0001_initial")

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["ENVIRONMENT"] = "test"
+os.environ["AUTH_MODE"] = "password"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,6 +18,10 @@ from app.models.base import Base
 
 @pytest.fixture()
 def client():
+    from app.core.config import get_settings
+    # Keep password regressions independent of the developer's local auth mode.
+    previous_mode = get_settings().auth_mode
+    get_settings().auth_mode = "password"
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     @event.listens_for(engine, "connect")
     def foreign_keys(connection, record):
@@ -32,6 +37,7 @@ def client():
         yield test_client
     app.dependency_overrides.clear()
     engine.dispose()
+    get_settings().auth_mode = previous_mode
 
 
 def account(client, name):
