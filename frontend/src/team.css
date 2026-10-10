@@ -2428,6 +2428,7 @@
 
 .project-context {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   background: white;
@@ -2475,6 +2476,16 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
+}
+.project-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.project-remove {
+  margin-top: 12px;
 }
 .project-card {
   padding: 24px;

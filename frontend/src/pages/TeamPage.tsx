@@ -153,6 +153,8 @@ export default function TeamPage() {
   const [view, setView] = useState("Projects");
   const [projectId, setProjectId] = useState<number | null>(null);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
+  const [actionProject, setActionProject] = useState<Project | null>(null);
+  const [removeProjectName, setRemoveProjectName] = useState("");
   const [search, setSearch] = useState("");
   const [assignee, setAssignee] = useState("all");
   const [priority, setPriority] = useState("all");
@@ -209,6 +211,9 @@ export default function TeamPage() {
     (joined) => joined.project_id === currentProject?.id && joined.user_id === m.id,
   ));
   const joinedCurrentProject = projectMembers.some((m) => m.id === me.data?.id);
+  const actionProjectMembers = members.filter((m) => projectMemberships.some(
+    (joined) => joined.project_id === actionProject?.id && joined.user_id === m.id,
+  ));
   const sprints = (data?.sprints ?? []).filter(
     (s) => s.project_id === currentProject?.id,
   );
@@ -347,6 +352,12 @@ export default function TeamPage() {
         ), joined],
       } : old);
     }, `You joined ${project.name}. Tasks can now be assigned to you.`, false);
+  }
+  function openProjectAction(project: Project, action: string) {
+    setActionProject(project);
+    setRemoveProjectName("");
+    setError("");
+    setModal(action);
   }
   function logout() {
     clearToken();
@@ -763,11 +774,15 @@ export default function TeamPage() {
                     {currentProject.description ||
                       "Tasks, meetings, and work plans for this project"}
                   </span>
-                  <button className="btn outline" disabled={busy || joinedCurrentProject}
-                    onClick={() => joinProject(currentProject)}>
-                    {joinedCurrentProject ? <Check size={15} /> : <Users size={15} />}
-                    {joinedCurrentProject ? "Joined" : "Join project"}
+                  <button className="btn secondary" onClick={() => openProjectAction(currentProject, "project-members")}>
+                    <Users size={15} /> Members ({projectMembers.length})
                   </button>
+                  <button className="btn secondary" disabled={busy}
+                    onClick={() => joinedCurrentProject ? openProjectAction(currentProject, "leave-project") : joinProject(currentProject)}>
+                    {joinedCurrentProject ? <LogOut size={15} /> : <Users size={15} />}
+                    {joinedCurrentProject ? "Leave project" : "Join project"}
+                  </button>
+                  {isOwner && <button className="btn text remove-member" onClick={() => openProjectAction(currentProject, "remove-project")}>Remove project</button>}
                   <button
                     className="btn text"
                     onClick={() => setView("Projects")}
@@ -902,11 +917,12 @@ export default function TeamPage() {
                           </small>
                           </button>
                           <div className="project-card-members">
-                            <span><Users size={14} /> {projectMemberships.filter((m) => m.project_id === p.id).length} joined</span>
-                            <button className="btn outline" disabled={busy || projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id)} onClick={() => joinProject(p)} aria-label={`Join ${p.name}`}>
-                              {projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? <><Check size={14} />Joined</> : "Join project"}
+                            <button className="btn text" onClick={() => openProjectAction(p, "project-members")} aria-label={`View members of ${p.name}`}><Users size={14} /> {projectMemberships.filter((m) => m.project_id === p.id).length} members</button>
+                            <button className="btn secondary" disabled={busy} onClick={() => projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? openProjectAction(p, "leave-project") : joinProject(p)}>
+                              {projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? "Leave project" : "Join project"}
                             </button>
                           </div>
+                          {isOwner && <button className="btn text remove-member project-remove" onClick={() => openProjectAction(p, "remove-project")} aria-label={`Remove project ${p.name}`}>Remove project</button>}
                         </article>
                       );
                     })}
@@ -1527,6 +1543,9 @@ export default function TeamPage() {
                     workspace: "Create a space",
                     "edit-space": "Edit this space",
                     project: "Create a project",
+                    "project-members": `Members of ${actionProject?.name ?? "project"}`,
+                    "leave-project": "Leave this project?",
+                    "remove-project": "Remove this project?",
                     remove: "Remove access to this space?",
                     invite: "Better together",
                     sprint: "Make a work plan",
@@ -1548,6 +1567,48 @@ export default function TeamPage() {
             <div className="modal-error" role="alert">
               {error}
             </div>
+          )}
+          {modal === "project-members" && actionProject && (
+            <div className="modal-body">
+              <p className="modal-intro">These people joined {actionProject.name} and can be assigned its tasks.</p>
+              {actionProjectMembers.length ? actionProjectMembers.map((m) => (
+                <div className="member-row" key={m.id}>
+                  <Avatar member={m} />
+                  <div><b>{personName(m.email)}{m.id === me.data?.id ? " (you)" : ""}</b><small>{m.email}</small></div>
+                  <span className="role-badge">{m.id === team?.owner_id ? "Space owner" : "Member"}</span>
+                </div>
+              )) : <p className="hint">No one has joined yet. Use Join project to be the first.</p>}
+            </div>
+          )}
+          {modal === "leave-project" && actionProject && (
+            <div className="modal-body">
+              <p className="modal-intro">Leave <strong>{actionProject.name}</strong>?</p>
+              <p className="hint">Your unfinished tasks in this project will become unassigned. Completed work and discussions stay. You will remain in the space and can join this project again.</p>
+              <div className="project-dialog-actions">
+                <button className="btn secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button>
+                <button className="btn danger" disabled={busy} onClick={() => void run(() => apiRequest(`/teams/${teamId}/projects/${actionProject.id}/membership`, { method: "DELETE" }), `You left ${actionProject.name}.`)}>Leave project</button>
+              </div>
+            </div>
+          )}
+          {modal === "remove-project" && actionProject && isOwner && (
+            <form onSubmit={(event) => {
+              event.preventDefault();
+              if (removeProjectName !== actionProject.name) return;
+              void run(async () => {
+                await apiRequest(`/teams/${teamId}/projects/${actionProject.id}`, { method: "DELETE" });
+                setView("Projects");
+              }, `${actionProject.name} was removed.`);
+            }}>
+              <div className="modal-body">
+                <p className="modal-intro">Permanently remove <strong>{actionProject.name}</strong>?</p>
+                <p className="hint">This deletes all its tasks, discussions, meetings, notes, and work plans for everyone. This cannot be undone. Other projects, space members, and the invite link stay unchanged.</p>
+                <label>Type the project name to confirm<input value={removeProjectName} onChange={(event) => setRemoveProjectName(event.target.value)} autoComplete="off" /></label>
+                <div className="project-dialog-actions">
+                  <button type="button" className="btn secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button>
+                  <button className="btn danger" disabled={busy || removeProjectName !== actionProject.name}>Remove project permanently</button>
+                </div>
+              </div>
+            </form>
           )}
           {modal === "issue" && (
             <form
