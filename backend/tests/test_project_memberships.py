@@ -1,6 +1,78 @@
 from test_team_workspaces import account, client, create_project, setup
 
 
+def test_leave_is_self_only_scoped_and_preserves_completed_work(client, setup):
+    owner, member, outsider, team = setup
+    root = f"/teams/{team['id']}"
+    project = client.get(root + "/workspace", headers=owner).json()["projects"][0]
+    member_id = client.get("/me", headers=member).json()["id"]
+    other = create_project(client, team, owner, "Other project")
+    client.post(f"{root}/projects/{other['id']}/join", headers=member)
+    tasks = []
+    for project_id, status in [(project['id'], 'ongoing'), (project['id'], 'completed'), (other['id'], 'ongoing')]:
+        response = client.post(root + '/issues', headers=owner, json={'title': 'Keep work', 'project_id': project_id, 'status': status, 'assignee_id': member_id})
+        assert response.status_code == 201
+        tasks.append(response.json())
+    path = f"{root}/projects/{project['id']}/membership"
+    assert client.delete(path, headers=outsider).status_code == 404
+    assert client.delete(path).status_code == 401
+    assert client.delete(path, headers=member).status_code == 204
+    assert client.delete(path, headers=member).status_code == 204
+    state = client.get(root + '/workspace', headers=member).json()
+    saved = {i['id']: i for i in state['issues']}
+    assert saved[tasks[0]['id']]['assignee_id'] is None
+    assert saved[tasks[1]['id']]['assignee_id'] == member_id
+    assert saved[tasks[2]['id']]['assignee_id'] == member_id
+    assert state['project_memberships'] == [{'project_id': other['id'], 'user_id': member_id}]
+    assert len(state['members']) == 2
+    assert client.post(root + '/issues', headers=owner, json={'title': 'Invalid assignment', 'project_id': project['id'], 'assignee_id': member_id}).status_code == 422
+    assert client.post(f"{root}/projects/{project['id']}/join", headers=member).status_code == 200
+    assert client.post(root + '/issues', headers=owner, json={'title': 'Joined again', 'project_id': project['id'], 'assignee_id': member_id}).status_code == 201
+
+
+def test_owner_can_remove_populated_project_without_touching_other_projects(client, setup):
+    from test_project_meetings import create_meeting
+    from app.models.team import IssueComment, Meeting, MeetingTaskUpdate, ProjectMembership, Sprint
+    from sqlalchemy import select
+
+    owner, member, outsider, team = setup
+    root = f"/teams/{team['id']}"
+    project = client.get(root + '/workspace', headers=owner).json()['projects'][0]
+    other = create_project(client, team, owner, 'Keep this project')
+    keep = client.post(root + '/issues', headers=owner, json={'title': 'Keep this task', 'project_id': other['id']}).json()
+    sprint = client.post(root + '/sprints', headers=owner, json={'name': 'Plan', 'project_id': project['id'], 'start_date': '2026-10-10', 'end_date': '2026-10-20'}).json()
+    client.patch(root + f"/sprints/{sprint['id']}", headers=owner, json={'status': 'active'})
+    created = client.post(root + '/issues', headers=member, json={'title': 'Project task', 'project_id': project['id'], 'sprint_id': sprint['id'], 'status': 'scheduled'})
+    assert created.status_code == 201, created.text
+    task = created.json()
+    client.post(root + f"/issues/{task['id']}/comments", headers=member, json={'body': 'Discussion'})
+    meetings = f"{root}/projects/{project['id']}/meetings"
+    meeting = create_meeting(client, meetings, member)
+    review = client.post(meetings + f"/{meeting['id']}/review", headers=member, json={'notes': 'Keep record until project removal', 'complete': True, 'task_updates': [{'issue_id': task['id'], 'status': 'completed'}]})
+    assert review.status_code == 200
+    path = f"{root}/projects/{project['id']}"
+    assert client.delete(path, headers=member).status_code == 403
+    assert client.delete(path, headers=outsider).status_code == 404
+    assert client.delete(path).status_code == 401
+    foreign_space = client.post('/teams', headers=owner, json={'name': 'Separate', 'key': 'SEP'}).json()
+    assert client.delete(f"/teams/{foreign_space['id']}/projects/{project['id']}", headers=owner).status_code == 404
+    result = client.delete(path, headers=owner)
+    assert result.status_code == 204, result.text
+    state = client.get(root + '/workspace', headers=owner).json()
+    assert state['projects'] == [other]
+    assert [i['id'] for i in state['issues']] == [keep['id']]
+    assert state['team']['invite_code'] == team['invite_code']
+    assert len(state['members']) == 2
+    assert state['project_memberships'] == []
+    with client.session_factory() as db:
+        for model in (IssueComment, Meeting, MeetingTaskUpdate, ProjectMembership, Sprint):
+            assert db.scalars(select(model)).all() == []
+    assert client.post(path + '/join', headers=member).status_code == 404
+    assert client.delete(path, headers=owner).status_code == 404
+    assert client.delete(f"{root}/projects/{other['id']}", headers=owner).status_code == 204
+    assert client.get(root + '/workspace', headers=owner).json()['projects'] == []
+
+
 def test_join_is_explicit_immediate_idempotent_and_scoped_to_project(client, setup):
     owner, member, outsider, team = setup
     root = f"/teams/{team['id']}"

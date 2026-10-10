@@ -237,6 +237,39 @@ def join_project(team_id: int, project_id: int, db: DbSession, user: CurrentUser
     return {"project_id": project_id, "user_id": user.id}
 
 
+@router.delete("/{team_id}/projects/{project_id}/membership", status_code=204)
+def leave_project(team_id: int, project_id: int, db: DbSession, user: CurrentUser):
+    membership(db, team_id, user.id, lock=True)
+    project = get_project(db, team_id, project_id)
+    joined = db.get(ProjectMembership, (project_id, user.id))
+    if joined:
+        db.execute(update(Issue).where(
+            Issue.team_id == team_id, Issue.project_id == project_id,
+            Issue.assignee_id == user.id, Issue.status != "completed",
+        ).values(assignee_id=None))
+        db.delete(joined)
+        log(db, team_id, user.id, f"left project {project.name}")
+        db.commit()
+
+
+@router.delete("/{team_id}/projects/{project_id}", status_code=204)
+def remove_project(team_id: int, project_id: int, db: DbSession, user: CurrentUser):
+    membership(db, team_id, user.id, admin=True, lock=True)
+    project = get_project(db, team_id, project_id)
+    issue_ids = select(Issue.id).where(Issue.project_id == project_id)
+    meeting_ids = select(Meeting.id).where(Meeting.project_id == project_id)
+    # Remove dependents in one transaction; never touch other projects or invites.
+    db.execute(delete(MeetingTaskUpdate).where(MeetingTaskUpdate.meeting_id.in_(meeting_ids)))
+    db.execute(delete(Meeting).where(Meeting.project_id == project_id))
+    db.execute(delete(IssueComment).where(IssueComment.issue_id.in_(issue_ids)))
+    db.execute(delete(Issue).where(Issue.project_id == project_id))
+    db.execute(delete(Sprint).where(Sprint.project_id == project_id))
+    db.execute(delete(ProjectMembership).where(ProjectMembership.project_id == project_id))
+    log(db, team_id, user.id, f"removed project {project.name}")
+    db.delete(project)
+    db.commit()
+
+
 @router.get("/{team_id}/projects/{project_id}/meetings")
 def list_meetings(team_id: int, project_id: int, db: DbSession, user: CurrentUser):
     membership(db, team_id, user.id)

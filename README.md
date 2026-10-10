@@ -12,6 +12,8 @@ To invite someone, the owner copies the space's invite link and sends it to them
 
 Space members choose **Join project** on a project card or board to join immediately, without approval. Only people who joined that project can be assigned its tasks; the API enforces this on task creation and editing. Everyone in the space can still view and contribute to every project. Existing task assignees who still belong to the space are enrolled in their assigned projects during migration so existing work is preserved.
 
+Choose **Members** on a project card or board to see who joined, including their email addresses. **Leave project** removes your participation and clears your unfinished assignments only in that project; completed work and discussions stay, and you remain a space member. You can join again. The space owner can **Remove project** after typing its name to confirm. Removal permanently deletes that project's tasks, discussions, meetings, notes, and work plans; it does not remove space members, other projects, or the invite link.
+
 Invite links last **7 days**. Anyone holding a valid link can join, so share it only with intended teammates. Replacing the link invalidates the old one immediately. Removing a member immediately blocks that person's space access and removes their project memberships, but leaves the shared invite link and expiry unchanged. Unfinished tasks become unassigned; their account, completed assignments, and previous discussions remain. They can rejoin using a still-valid link, but must join projects again. To stop the old link from working, explicitly replace it. An expired invite does not remove people who already joined.
 
 When email sign-in is enabled, enter your email and the six-digit code sent by **ZenOS** through Brevo. The code expires after 10 minutes, can be used once, and can be resent after 60 seconds. The same flow creates a new account or opens an existing one; an account is created only after verification. Existing accounts keep their spaces, projects, meetings, and personal tasks. An invitation stays saved while you sign in.
@@ -225,6 +227,8 @@ Space APIs retain the `/teams` route name for compatibility:
 - `POST /teams/{id}/projects` (owner only)
 - `POST /teams/{id}/rotate-invite` (owner only)
 - `POST /teams/{id}/projects/{project_id}/join` (space members; immediate and idempotent)
+- `DELETE /teams/{id}/projects/{project_id}/membership` (leave your own project membership)
+- `DELETE /teams/{id}/projects/{project_id}` (owner only; permanently removes the project and its contents)
 - `DELETE /teams/{id}/members/{user_id}` (owner only; owner cannot be removed)
 - `POST /teams/{id}/issues`, `PUT /teams/{id}/issues/{issue_id}`, `DELETE /teams/{id}/issues/{issue_id}`
 - `PATCH /teams/{id}/issues/{issue_id}/status`
