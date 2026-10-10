@@ -6,6 +6,59 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 
 
+def test_empty_legacy_folders_cleanup_keeps_all_lists_tasks_and_custom_folders(tmp_path):
+    url = "sqlite:///" + (tmp_path / "empty_legacy.db").as_posix()
+    env = {**os.environ, "DATABASE_URL": url, "ENVIRONMENT": "test"}
+    backend = Path(__file__).resolve().parents[1]
+
+    def migrate(*args):
+        result = subprocess.run([sys.executable, "-m", "alembic", *args], cwd=backend, env=env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    migrate("upgrade", "0008_project_memberships")
+    engine = create_engine(url)
+    removable = set()
+    with engine.begin() as connection:
+        connection.execute(text("PRAGMA foreign_keys=ON"))
+        for user_id in range(1, 7):
+            connection.execute(text("INSERT INTO users(id,email,hashed_password,created_at) VALUES (:id,:email,'hash','2026-01-01 00:00:00')"), {"id": user_id, "email": f"person{user_id}@example.com"})
+
+        def folder(user_id, name, created="2026-01-01 00:00:00", updated="2026-02-01 00:00:00"):
+            return connection.execute(text("INSERT INTO categories(user_id,name,created_at,updated_at) VALUES (:user_id,:name,:created,:updated)"), {"user_id": user_id, "name": name, "created": created, "updated": updated}).lastrowid
+
+        def task_list(user_id, folder_id, name, notes=None):
+            return connection.execute(text("INSERT INTO subbranches(user_id,category_id,name,notes) VALUES (:user_id,:folder_id,:name,:notes)"), {"user_id": user_id, "folder_id": folder_id, "name": name, "notes": notes}).lastrowid
+
+        for user_id in (1, 2):
+            for name in ("Learning", "Projects", "DSA", "Internships / Work", "Internships / Research"):
+                removable.add(folder(user_id, name))
+        # Any list protects its folder, including an empty list or one with notes.
+        project = folder(3, "Projects")
+        zen_list = task_list(3, project, "zenOS")
+        task_list(3, folder(3, "Learning"), "Empty list")
+        task_list(3, folder(3, "DSA"), "Notes", "Keep these notes")
+        # Even an inconsistent legacy task referencing a list in another folder
+        # protects its direct category; the task may belong to another user.
+        task_only = folder(4, "Learning")
+        connection.execute(text("INSERT INTO tasks(user_id,category_id,subbranch_id,title,task_type,priority,estimated_hours,progress,completed) VALUES (3,:folder,:list,'Retain completed work','Daily','Medium',1,100,1)"), {"folder": task_only, "list": zen_list})
+        folder(5, "My custom folder")
+        folder(5, "Learning", created="2026-01-02 00:00:00")
+        folder(5, "Projects", created="2025-12-31 23:59:59")
+        removable.add(folder(6, "Learning", created="2026-01-01 00:00:05"))
+        folder(6, "Projects", created="2026-01-01 00:00:06")
+        snapshots = {}
+        for table in ("categories", "subbranches", "tasks", "users"):
+            snapshots[table] = [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings() if table != "categories" or row['id'] not in removable]
+    assert "removed 11 folders; no lists or tasks deleted" in migrate("upgrade", "head")
+    migrate("upgrade", "head")
+    migrate("check")
+    with engine.connect() as connection:
+        for table, expected in snapshots.items():
+            assert [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings()] == expected, table
+    engine.dispose()
+
+
 def test_upgrade_preserves_personal_and_legacy_space_data_and_matches_models(tmp_path):
     database = tmp_path / "migration.db"
     url = "sqlite:///" + database.as_posix()
@@ -146,8 +199,7 @@ def test_personal_cleanup_only_removes_exact_unused_starter_trees(tmp_path):
         before_lists = [dict(row) for row in connection.execute(text("SELECT * FROM subbranches ORDER BY id")).mappings() if row["id"] not in removable_lists]
         before_tasks = [dict(row) for row in connection.execute(text("SELECT * FROM tasks ORDER BY id")).mappings()]
 
-    migrate("upgrade", "head")
-    migrate("check")
+    migrate("upgrade", "0004_empty_personal_workspace")
     with engine.connect() as connection:
         assert [dict(row) for row in connection.execute(text("SELECT * FROM categories ORDER BY id")).mappings()] == before_categories
         assert [dict(row) for row in connection.execute(text("SELECT * FROM subbranches ORDER BY id")).mappings()] == before_lists

@@ -48,6 +48,8 @@ Personal work uses **Folder → List → Task**. New accounts start empty: creat
 
 The migration removes the old sample folders and lists only when their complete structure is unchanged, their timestamps match registration, and they have no tasks or notes. Customized names, extra or missing lists, later-created folders, notes, and task-bearing folders are preserved. It does not add replacement sample content.
 
+A follow-up cleanup removes remaining empty legacy folders named Learning, Projects, DSA, Internships / Work, or Internships / Research across existing accounts, only when created during registration. A folder with **any list or task** is always kept, including empty lists and completed tasks. Later-created folders and other names are preserved. This runs once during deployment, not whenever someone creates a folder or signs in.
+
 ## Shared work
 
 - Separate user accounts, one owner per space, members, expiring invite links, and membership removal.
