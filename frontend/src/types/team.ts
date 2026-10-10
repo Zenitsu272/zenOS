@@ -50,6 +50,7 @@ export type Issue = IssueInput & {
 export type Workspace = {
   team: Team;
   projects: Project[];
+  project_memberships: { project_id: number; user_id: number }[];
   members: Member[];
   sprints: Sprint[];
   issues: Issue[];

@@ -204,6 +204,11 @@ export default function TeamPage() {
     (i) => i.project_id === currentProject?.id,
   );
   const members = data?.members ?? [];
+  const projectMemberships = data?.project_memberships ?? [];
+  const projectMembers = members.filter((m) => projectMemberships.some(
+    (joined) => joined.project_id === currentProject?.id && joined.user_id === m.id,
+  ));
+  const joinedCurrentProject = projectMembers.some((m) => m.id === me.data?.id);
   const sprints = (data?.sprints ?? []).filter(
     (s) => s.project_id === currentProject?.id,
   );
@@ -329,6 +334,19 @@ export default function TeamPage() {
           },
     );
     setModal("issue");
+  }
+  function joinProject(project: Project) {
+    void run(async () => {
+      const joined = await apiRequest<{ project_id: number; user_id: number }>(
+        `/teams/${teamId}/projects/${project.id}/join`, { method: "POST" },
+      );
+      qc.setQueryData<Workspace>(["team", teamId], (old) => old ? {
+        ...old,
+        project_memberships: [...(old.project_memberships ?? []).filter(
+          (item) => item.project_id !== joined.project_id || item.user_id !== joined.user_id,
+        ), joined],
+      } : old);
+    }, `You joined ${project.name}. Tasks can now be assigned to you.`, false);
   }
   function logout() {
     clearToken();
@@ -745,6 +763,11 @@ export default function TeamPage() {
                     {currentProject.description ||
                       "Tasks, meetings, and work plans for this project"}
                   </span>
+                  <button className="btn outline" disabled={busy || joinedCurrentProject}
+                    onClick={() => joinProject(currentProject)}>
+                    {joinedCurrentProject ? <Check size={15} /> : <Users size={15} />}
+                    {joinedCurrentProject ? "Joined" : "Join project"}
+                  </button>
                   <button
                     className="btn text"
                     onClick={() => setView("Projects")}
@@ -797,8 +820,8 @@ export default function TeamPage() {
                     <span>
                       {members.length}{" "}
                       {members.length === 1 ? "person has" : "people have"}{" "}
-                      access to this space. Members can work on every project
-                      here.
+                      access to this space. Everyone can view its projects.
+                      Join a project to appear in its task assignment list.
                     </span>
                   </div>
                   <div className="section-heading">
@@ -839,11 +862,11 @@ export default function TeamPage() {
                         (s) => s.project_id === p.id && s.status === "active",
                       );
                       return (
-                        <button
+                        <article
                           className="project-card"
                           key={p.id}
-                          onClick={() => switchProject(p.id)}
                         >
+                          <button className="project-card-open" onClick={() => switchProject(p.id)} aria-label={`Open ${p.name}`}>
                           <div className="project-card-top">
                             <span className="project-context-icon">
                               <FolderKanban size={22} />
@@ -877,7 +900,14 @@ export default function TeamPage() {
                               ? `${planLabel(active.name)} · in progress`
                               : "Open task board"}
                           </small>
-                        </button>
+                          </button>
+                          <div className="project-card-members">
+                            <span><Users size={14} /> {projectMemberships.filter((m) => m.project_id === p.id).length} joined</span>
+                            <button className="btn outline" disabled={busy || projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id)} onClick={() => joinProject(p)} aria-label={`Join ${p.name}`}>
+                              {projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? <><Check size={14} />Joined</> : "Join project"}
+                            </button>
+                          </div>
+                        </article>
                       );
                     })}
                   </div>
@@ -942,7 +972,7 @@ export default function TeamPage() {
                       <b>{complete.length}</b> done
                     </span>
                     <span>
-                      <b>{members.length}</b> teammates
+                      <b>{projectMembers.length}</b> project members
                     </span>
                   </div>
                 </>
@@ -1576,12 +1606,16 @@ export default function TeamPage() {
                         }
                       >
                         <option value="">Choose later</option>
-                        {members.map((m) => (
+                        {draft.assignee_id && !projectMembers.some((m) => m.id === draft.assignee_id) && (
+                          <option value={draft.assignee_id} disabled>Previous assignee (no longer a project member)</option>
+                        )}
+                        {projectMembers.map((m) => (
                           <option key={m.id} value={m.id}>
                             {personName(m.email)}
                           </option>
                         ))}
                       </select>
+                      <span className="form-helper">Only people who joined this project can be assigned tasks.{!projectMembers.length ? " No one has joined yet." : ""}</span>
                     </label>
                     <label>
                       Due date (optional)
@@ -2113,9 +2147,9 @@ export default function TeamPage() {
                 Unfinished tasks assigned to them will become unassigned.
               </p>
               <p className="hint">
-                The current invite link will also be replaced, so they cannot
-                use it to rejoin. Share the new link only with people you want
-                to invite.
+                Your invite link stays the same. Anyone holding that valid link,
+                including this person, can rejoin. Use “Make a new invite link”
+                if you want to stop the old link from working.
               </p>
               <button
                 className="btn danger"
@@ -2127,7 +2161,7 @@ export default function TeamPage() {
                         `/teams/${teamId}/members/${removingMember.id}`,
                         { method: "DELETE" },
                       ),
-                    "Access removed. A new invite link is ready.",
+                    "Access removed. Your invite link is unchanged.",
                   )
                 }
               >

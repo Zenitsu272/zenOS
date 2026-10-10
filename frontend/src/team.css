@@ -2486,6 +2486,32 @@
     border-color 0.15s,
     box-shadow 0.15s;
 }
+.project-card-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.project-card-members {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #ececf2;
+  padding-top: 16px;
+  margin-top: 18px;
+}
+.project-card-members > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #78668e;
+  font-size: 12px;
+}
 .project-card:hover {
   border-color: #b9a6d2;
   box-shadow: 0 5px 20px #6d4d8710;
