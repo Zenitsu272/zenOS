@@ -59,7 +59,7 @@ Existing accounts and signed-in sessions are retained; keep `SECRET_KEY` unchang
 
 ### Database migrations
 
-The start command applies migrations before starting the API. This release must reach **`0009_empty_legacy_folders`**:
+The start command applies migrations before starting the API. This release must reach **`0010_issue_assigned_date`**:
 
 | Migration | Result |
 | --- | --- |
@@ -72,8 +72,9 @@ The start command applies migrations before starting the API. This release must 
 | `0007_email_otp` | Adds email-code challenges and persistent rate limits; preserves accounts and workspace data |
 | `0008_project_memberships` | Adds project membership; enrolls existing assignees who still belong to the space, preserving assignments |
 | `0009_empty_legacy_folders` | Removes only empty registration-era legacy folders; preserves every folder containing a list or task and logs the removed count |
+| `0010_issue_assigned_date` | Adds a separate optional assigned date to shared tasks; existing tasks remain undated and deadlines and statuses are preserved |
 
-Check the deploy logs for a successful upgrade. If the service shell is available, run `alembic current` and confirm `0009_empty_legacy_folders (head)`. Do not bypass migration failures by stamping the database or resetting it.
+Check the deploy logs for a successful upgrade. If the service shell is available, run `alembic current` and confirm `0010_issue_assigned_date (head)`. Do not bypass migration failures by stamping the database or resetting it.
 
 After deployment, [the API health check](https://zenos-api.onrender.com/health) should return `{"status":"ok"}`. This checks that the API is running; the smoke checks below verify authentication and database-backed features.
 

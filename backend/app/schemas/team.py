@@ -60,6 +60,7 @@ class IssueWrite(StrictModel):
     assignee_id: int | None = None
     sprint_id: int | None = None
     due_date: date | None = None
+    assigned_date: date | None = None
 
 
 class MoveIssue(StrictModel):

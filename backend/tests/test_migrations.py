@@ -89,6 +89,7 @@ def test_upgrade_preserves_personal_and_legacy_space_data_and_matches_models(tmp
     migrate("check")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT title FROM tasks WHERE id=1")) == "Keep this task"
+        assert connection.execute(text("SELECT assigned_date FROM issues ORDER BY id")).all() == [(None,), (None,), (None,)]
         assert connection.scalar(text("SELECT email FROM users WHERE id=1")) == "legacy@example.com"
         assert connection.execute(text("SELECT id,owner_id FROM teams ORDER BY id")).all() == [(10, 1), (20, 2)]
         assert connection.execute(text("SELECT description FROM teams ORDER BY id")).all() == [("",), ("",)]
@@ -269,6 +270,8 @@ def test_empty_default_project_cleanup_preserves_user_projects_and_all_reference
         snapshots = {}
         for table in ["projects", "teams", "memberships", "issues", "sprints", "meetings", "team_activity"]:
             snapshots[table] = [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings() if table != "projects" or row["id"] not in removable]
+        for issue in snapshots["issues"]:
+            issue["assigned_date"] = None
 
     migrate("upgrade", "head")
     migrate("check")

@@ -469,6 +469,9 @@ def update_issue(team_id: int, issue_id: int, payload: IssueWrite, db: DbSession
     issue = get_issue(db, team_id, issue_id)
     project_id = validate_relations(db, team_id, payload, issue)
     for key, value in {**payload.model_dump(), "project_id": project_id}.items():
+        # Older clients do not send this field; only an explicit null clears it.
+        if key == "assigned_date" and key not in payload.model_fields_set:
+            continue
         setattr(issue, key, value)
     log(db, team_id, user.id, f"updated {issue.title}")
     db.commit()
@@ -522,12 +525,12 @@ def import_csv(team_id: int, payload: CsvImport, db: DbSession, user: CurrentUse
     membership(db, team_id, user.id)
     project = resolve_project(db, team_id, payload.project_id)
     reader = csv.DictReader(io.StringIO(payload.csv.lstrip("\ufeff")))
-    aliases = {"task": "title", "notes": "description", "due date": "due_date", "group": "label"}
+    aliases = {"task": "title", "notes": "description", "due date": "due_date", "assigned date": "assigned_date", "group": "label"}
     if reader.fieldnames:
         reader.fieldnames = [aliases.get(name.strip().lower(), name.strip().lower()) for name in reader.fieldnames]
         if len(set(reader.fieldnames)) != len(reader.fieldnames):
             raise HTTPException(422, "Each column needs a different name")
-    allowed = {"title", "description", "status", "priority", "issue_type", "points", "label", "due_date", "acceptance_criteria"}
+    allowed = {"title", "description", "status", "priority", "issue_type", "points", "label", "due_date", "assigned_date", "acceptance_criteria"}
     if not reader.fieldnames or "title" not in reader.fieldnames or set(reader.fieldnames) - allowed:
         raise HTTPException(422, "CSV needs a title column. Supported columns: " + ", ".join(sorted(allowed)))
     rows = []
