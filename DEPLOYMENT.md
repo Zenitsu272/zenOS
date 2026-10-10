@@ -59,7 +59,7 @@ Existing accounts and signed-in sessions are retained; keep `SECRET_KEY` unchang
 
 ### Database migrations
 
-The start command applies migrations before starting the API. This release must reach **`0007_email_otp`**:
+The start command applies migrations before starting the API. This release must reach **`0008_project_memberships`**:
 
 | Migration | Result |
 | --- | --- |
@@ -70,8 +70,9 @@ The start command applies migrations before starting the API. This release must 
 | `0005_space_meetings` | Space descriptions, project meetings, and retained task-change history |
 | `0006_remove_empty_defaults` | Removes only empty automatic General projects; keeps projects containing work and manually created projects |
 | `0007_email_otp` | Adds email-code challenges and persistent rate limits; preserves accounts and workspace data |
+| `0008_project_memberships` | Adds project membership; enrolls existing assignees who still belong to the space, preserving assignments |
 
-Check the deploy logs for a successful upgrade. If the service shell is available, run `alembic current` and confirm `0007_email_otp (head)`. Do not bypass migration failures by stamping the database or resetting it.
+Check the deploy logs for a successful upgrade. If the service shell is available, run `alembic current` and confirm `0008_project_memberships (head)`. Do not bypass migration failures by stamping the database or resetting it.
 
 After deployment, [the API health check](https://zenos-api.onrender.com/health) should return `{"status":"ok"}`. This checks that the API is running; the smoke checks below verify authentication and database-backed features.
 
@@ -102,9 +103,9 @@ Make sure the final frontend origin matches Render's CORS configuration. Share i
 Use test accounts and test content:
 
 1. **Authentication and personal work:** Request and verify an email code, sign out, and sign in with a fresh code. Test an existing account and a new account. A new account's `/personal` workspace is empty. Create a folder, a list, and a task with no due date; confirm it appears in All tasks, survives reload, and moves to Done when completed.
-2. **Spaces and projects:** Create a space and confirm it starts with no projects and a clear first-project action. Edit its name/description and add two projects. Create a task in each; confirm their boards stay separate and existing space data remains after reload.
+2. **Spaces and projects:** Create a space and confirm it starts with no projects and a clear first-project action. Edit its name/description and add two projects. Join one project and confirm immediate membership; only joined people appear as task assignees. Confirm the other project remains visible, but joining one does not enroll people in the other. Create a task in each; confirm their boards stay separate and existing space data remains after reload.
 3. **Invitations and access:** Copy an invite from People. In a separate browser session, open it, register or log in, and confirm it opens the invited space. Confirm this member can update project tasks but cannot edit space settings or manage invitations. A separate, uninvited account must not see or fetch that space.
-4. **Revocation:** Replace the invite link and confirm the previous link no longer joins. Remove the test member and confirm their access is blocked even while signed in. Invite links expire after seven days; replacing a link creates a fresh one.
+4. **Revocation:** Remove the test member and confirm their access is blocked even while signed in, their project memberships are removed, and the invite link and expiry remain unchanged. A valid shared link can let them rejoin the space; they must join projects again. Explicitly replace the invite link and confirm the previous link no longer joins. Invite links expire after seven days; replacing a link creates a fresh one.
 5. **Meetings:** Schedule a project meeting with an agenda and call link. Reload and verify its local start/end times. Save notes and a task status change, complete the meeting, and confirm both the board and Completed meeting history update. Add a further task update from the completed meeting; earlier history must remain unchanged. Tasks in finished work plans must remain protected.
 6. **Navigation:** Reload a project screen, `/personal`, and an invitation URL directly. Confirm no SPA routing errors, failed API requests, or CORS errors appear.
 

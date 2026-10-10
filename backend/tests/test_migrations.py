@@ -53,6 +53,9 @@ def test_upgrade_preserves_personal_and_legacy_space_data_and_matches_models(tmp
         assert connection.scalar(text("SELECT message FROM team_activity WHERE id=1")) == "created current work"
         assert connection.scalar(text("SELECT count(*) FROM meetings")) == 0
         assert connection.scalar(text("SELECT count(*) FROM meeting_task_updates")) == 0
+        assert connection.execute(text("SELECT pm.project_id,pm.user_id FROM project_memberships pm")).all() == [
+            (connection.scalar(text("SELECT project_id FROM issues WHERE id=10")), 2)
+        ]
         assert connection.scalar(text("SELECT count(*) FROM otp_challenges")) == 0
         assert connection.scalar(text("SELECT count(*) FROM auth_rate_limits")) == 0
     inspector = inspect(engine)

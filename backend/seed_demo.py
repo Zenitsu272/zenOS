@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.security import get_password_hash
 from app.db import base  # noqa: F401
 from app.db.session import SessionLocal
-from app.models.team import Activity, Issue, IssueComment, Membership, Project, Sprint, Team
+from app.models.team import Activity, Issue, IssueComment, Membership, Project, ProjectMembership, Sprint, Team
 from app.models.user import User
 
 if get_settings().environment != "development" or not get_settings().database_url.startswith("sqlite"):
@@ -32,6 +32,8 @@ with SessionLocal() as db:
     project = Project(team_id=team.id, name="General", description="Build a better team workspace.")
     db.add(project)
     db.flush()
+    for person in people:
+        db.add(ProjectMembership(project_id=project.id, user_id=person.id))
     today = date.today()
     sprint = Sprint(team_id=team.id, project_id=project.id, name="Sprint 01 · A better workspace", goal="Make teamwork feel effortless — from the first invite to the final delivery.", start_date=today - timedelta(days=4), end_date=today + timedelta(days=9), status="active", active_project_id=project.id)
     db.add(sprint)

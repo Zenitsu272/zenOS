@@ -34,6 +34,12 @@ class Membership(Base):
     role: Mapped[str] = mapped_column(String(20), default="member")
 
 
+class ProjectMembership(Base):
+    __tablename__ = "project_memberships"
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+
+
 class Sprint(Base):
     __tablename__ = "sprints"
     id: Mapped[int] = mapped_column(primary_key=True)

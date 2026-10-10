@@ -5,18 +5,21 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
-from sqlalchemy import case, select, update
+from sqlalchemy import case, delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DbSession
-from app.models.team import Activity, Issue, IssueComment, Meeting, MeetingTaskUpdate, Membership, Project, Sprint, Team
+from app.models.team import Activity, Issue, IssueComment, Meeting, MeetingTaskUpdate, Membership, Project, ProjectMembership, Sprint, Team
 from app.models.user import User
 from app.schemas.team import CommentCreate, CsvImport, IssueWrite, JoinTeam, MeetingReview, MeetingWrite, MoveIssue, ProjectCreate, SprintCreate, SprintTransition, TeamCreate, TeamUpdate
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
 
-def membership(db, team_id, user_id, admin=False):
+def membership(db, team_id, user_id, admin=False, lock=False):
+    if lock:
+        # Serialize project joins, assignments and space removals on PostgreSQL.
+        db.scalar(select(Team).where(Team.id == team_id).with_for_update())
     member = db.scalar(select(Membership).where(Membership.team_id == team_id, Membership.user_id == user_id))
     if not member:
         raise HTTPException(404, "Space not found")
@@ -126,6 +129,8 @@ def validate_relations(db, team_id, payload, existing=None):
     if payload.assignee_id is not None:
         if not db.scalar(select(Membership).where(Membership.team_id == team_id, Membership.user_id == payload.assignee_id)):
             raise HTTPException(422, "Choose someone who belongs to this space")
+        if not db.get(ProjectMembership, (project.id, payload.assignee_id)):
+            raise HTTPException(422, "Choose someone who has joined this project")
     if payload.sprint_id is not None:
         sprint = db.get(Sprint, payload.sprint_id)
         if not sprint or sprint.team_id != team_id or sprint.project_id != project.id:
@@ -210,6 +215,26 @@ def create_project(team_id: int, payload: ProjectCreate, db: DbSession, user: Cu
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.post("/{team_id}/projects/{project_id}/join")
+def join_project(team_id: int, project_id: int, db: DbSession, user: CurrentUser):
+    membership(db, team_id, user.id, lock=True)
+    project = get_project(db, team_id, project_id)
+    joined = db.get(ProjectMembership, (project_id, user.id))
+    if not joined:
+        joined = ProjectMembership(project_id=project_id, user_id=user.id)
+        db.add(joined)
+        log(db, team_id, user.id, f"joined project {project.name}")
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            membership(db, team_id, user.id)
+            joined = db.get(ProjectMembership, (project_id, user.id))
+            if not joined:
+                raise
+    return {"project_id": project_id, "user_id": user.id}
 
 
 @router.get("/{team_id}/projects/{project_id}/meetings")
@@ -309,7 +334,7 @@ def review_meeting(team_id: int, project_id: int, meeting_id: int, payload: Meet
 
 @router.delete("/{team_id}/members/{user_id}", status_code=204)
 def remove_member(team_id: int, user_id: int, db: DbSession, user: CurrentUser):
-    membership(db, team_id, user.id, admin=True)
+    membership(db, team_id, user.id, admin=True, lock=True)
     team = db.scalar(select(Team).where(Team.id == team_id).with_for_update())
     if team.owner_id == user_id:
         raise HTTPException(409, "The space owner cannot be removed")
@@ -319,8 +344,11 @@ def remove_member(team_id: int, user_id: int, db: DbSession, user: CurrentUser):
     removed_user = db.get(User, user_id)
     log(db, team_id, user.id, f"removed {removed_user.email} from the space")
     db.delete(member)
-    # Old shared links must not let a removed member immediately rejoin.
-    renew_invite(team)
+    db.execute(delete(ProjectMembership).where(
+        ProjectMembership.user_id == user_id,
+        ProjectMembership.project_id.in_(select(Project.id).where(Project.team_id == team_id)),
+    ))
+    # Keep shared invitations stable. Owners can explicitly replace the link.
     db.commit()
 
 
@@ -334,6 +362,10 @@ def workspace(team_id: int, db: DbSession, user: CurrentUser):
     return {
         "team": team_read(team, member),
         "projects": list(db.scalars(select(Project).where(Project.team_id == team_id).order_by(Project.id))),
+        "project_memberships": list(db.scalars(select(ProjectMembership)
+            .join(Project, Project.id == ProjectMembership.project_id)
+            .join(Membership, (Membership.team_id == Project.team_id) & (Membership.user_id == ProjectMembership.user_id))
+            .where(Project.team_id == team_id).order_by(ProjectMembership.project_id, ProjectMembership.user_id))),
         "members": [{"id": u.id, "email": u.email, "role": "admin" if team.owner_id == u.id else "member"} for u, m in people],
         "sprints": list(db.scalars(select(Sprint).where(Sprint.team_id == team_id).order_by(Sprint.id))),
         "issues": list(db.scalars(select(Issue).where(Issue.team_id == team_id).order_by(Issue.id))),
@@ -388,7 +420,7 @@ def transition_sprint(team_id: int, sprint_id: int, payload: SprintTransition, d
 
 @router.post("/{team_id}/issues", status_code=201)
 def create_issue(team_id: int, payload: IssueWrite, db: DbSession, user: CurrentUser):
-    membership(db, team_id, user.id)
+    membership(db, team_id, user.id, lock=True)
     project_id = validate_relations(db, team_id, payload)
     issue = Issue(team_id=team_id, reporter_id=user.id, **{**payload.model_dump(), "project_id": project_id})
     db.add(issue)
@@ -400,7 +432,7 @@ def create_issue(team_id: int, payload: IssueWrite, db: DbSession, user: Current
 
 @router.put("/{team_id}/issues/{issue_id}")
 def update_issue(team_id: int, issue_id: int, payload: IssueWrite, db: DbSession, user: CurrentUser):
-    membership(db, team_id, user.id)
+    membership(db, team_id, user.id, lock=True)
     issue = get_issue(db, team_id, issue_id)
     project_id = validate_relations(db, team_id, payload, issue)
     for key, value in {**payload.model_dump(), "project_id": project_id}.items():

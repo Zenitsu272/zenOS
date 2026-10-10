@@ -58,10 +58,11 @@ def setup(client):
     member = account(client, "member")
     outsider = account(client, "outsider")
     team = client.post("/teams", headers=admin, json={"name": "Product team", "key": "ZEN"}).json()
-    create_project(client, team, admin)
+    project = create_project(client, team, admin)
     joined = client.post("/teams/join", headers=member, json={"code": team["invite_code"]})
     assert joined.status_code == 200
     assert joined.json()["invite_code"] is None
+    assert client.post(f"/teams/{team['id']}/projects/{project['id']}/join", headers=member).status_code == 200
     return admin, member, outsider, team
 
 
@@ -405,7 +406,7 @@ def test_invite_preview_login_join_and_expiration(client, setup):
     assert client.post("/teams/join", headers=new_user, json={"code": replacement["invite_code"]}).status_code == 200
 
 
-def test_member_removal_revokes_access_and_previous_invites_immediately(client, setup):
+def test_member_removal_revokes_access_but_preserves_shared_invite(client, setup):
     admin, member, outsider, team = setup
     root = f"/teams/{team['id']}"
     member_id = client.get("/me", headers=member).json()["id"]
@@ -420,15 +421,17 @@ def test_member_removal_revokes_access_and_previous_invites_immediately(client, 
     assert client.get("/teams", headers=member).json() == []
     assert client.patch(root + f"/issues/{task['id']}/status", headers=member, json={"status": "completed"}).status_code == 404
     assert client.post(root + "/import", headers=member, json={"csv": "Task\nAccess after removal"}).status_code == 404
-    assert client.post("/teams/join", headers=member, json={"code": team["invite_code"]}).status_code == 404
-    assert client.get(f"/teams/invites/{team['invite_code']}").status_code == 404
+    assert client.get(f"/teams/invites/{team['invite_code']}").status_code == 200
     # Removing a membership preserves accounts, past authorship, and other spaces.
     assert client.get("/me", headers=member).status_code == 200
     state = client.get(root + "/workspace", headers=admin).json()
     assert len(state["members"]) == 1
     assert state["issues"][0]["title"] == "Keep shared history"
     assert state["comments"][0]["body"] == "Keep this discussion"
-    assert state["team"]["invite_code"] != team["invite_code"]
+    assert state["team"]["invite_code"] == team["invite_code"]
+    assert state["team"]["invite_expires_at"] == team["invite_expires_at"]
+    assert state["project_memberships"] == []
+    assert state["issues"][0]["assignee_id"] is None
     assert client.post("/teams/join", headers=member, json={"code": state["team"]["invite_code"]}).status_code == 200
 
 
