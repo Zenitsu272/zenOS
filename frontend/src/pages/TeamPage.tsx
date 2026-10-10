@@ -35,6 +35,8 @@ import { clearToken } from "../lib/storage";
 import { useUiStore } from "../store/uiStore";
 import AccountMenu from "../components/AccountMenu";
 import ProjectMeetings from "../components/ProjectMeetings";
+import AssignedDateFilter from "../components/AssignedDateFilter";
+import { allAssignedDates, localDate, matchesAssignedDate } from "../lib/assignedDate";
 import type {
   Issue,
   IssueInput,
@@ -70,6 +72,7 @@ const blankIssue: IssueInput = {
   assignee_id: null,
   sprint_id: null,
   due_date: null,
+  assigned_date: null,
 };
 const personName = (email: string) => email.split("@")[0].replace(/[._]/g, " ");
 const initials = (email: string) =>
@@ -159,6 +162,7 @@ export default function TeamPage() {
   const [assignee, setAssignee] = useState("all");
   const [priority, setPriority] = useState("all");
   const [sprintFilter, setSprintFilter] = useState("current");
+  const [dateFilter, setDateFilter] = useState(allAssignedDates);
   const [modal, setModal] = useState<string | null>(null);
   const [editing, setEditing] = useState<Issue | null>(null);
   const [draft, setDraft] = useState<IssueInput>(blankIssue);
@@ -205,6 +209,7 @@ export default function TeamPage() {
   const issues = (data?.issues ?? []).filter(
     (i) => i.project_id === currentProject?.id,
   );
+  const datedIssues = issues.filter((i) => matchesAssignedDate(i.assigned_date, dateFilter));
   const members = data?.members ?? [];
   const projectMemberships = data?.project_memberships ?? [];
   const projectMembers = members.filter((m) => projectMemberships.some(
@@ -255,15 +260,12 @@ export default function TeamPage() {
   const activeSprint = sprints.find((s) => s.status === "active");
   const selectedSprint = sprints.find((s) => String(s.id) === sprintFilter);
   const sprintIssues = selectedSprint
-    ? issues.filter((i) => i.sprint_id === selectedSprint.id)
-    : issues.filter(
+    ? datedIssues.filter((i) => i.sprint_id === selectedSprint.id)
+    : datedIssues.filter(
         (i) =>
           !i.sprint_id ||
           sprints.find((s) => s.id === i.sprint_id)?.status !== "completed",
       );
-  const boardIssues = (sprintFilter === "all" ? issues : sprintIssues).filter(
-    (i) => i.status !== "backlog",
-  );
   const visible = (items: Issue[]) =>
     items.filter(
       (i) =>
@@ -277,6 +279,10 @@ export default function TeamPage() {
             : i.assignee_id === Number(assignee))) &&
         (priority === "all" || i.priority === priority),
     );
+  const boardIssues = visible((sprintFilter === "all" ? datedIssues : sprintIssues).filter(
+    (i) => i.status !== "backlog",
+  ));
+  const laterIssues = visible(datedIssues.filter((i) => i.status === "backlog"));
   const complete = boardIssues.filter((i) => i.status === "completed");
   const progress = boardIssues.length
     ? Math.round((complete.length / boardIssues.length) * 100)
@@ -329,6 +335,9 @@ export default function TeamPage() {
         : {
             ...blankIssue,
             project_id: currentProject?.id ?? null,
+            assigned_date: dateFilter.mode === "undated" ? null
+              : (dateFilter.mode === "date" || dateFilter.mode === "range") && dateFilter.from
+                ? dateFilter.from : localDate(),
             status,
             sprint_id:
               status === "backlog"
@@ -376,6 +385,7 @@ export default function TeamPage() {
     setAssignee("all");
     setPriority("all");
     setSprintFilter("current");
+    setDateFilter(allAssignedDates);
     setError("");
   }
   function switchProject(id: number, nextView = "Tasks") {
@@ -450,10 +460,13 @@ export default function TeamPage() {
         )}
       </button>
       <div className="card-meta">
+        <span className="due-date" title="Assigned date">
+          <CalendarDays size={12} />
+          {issue.assigned_date ? `Assigned ${dateLabel(issue.assigned_date)}` : "No assigned date"}
+        </span>
         {issue.due_date && (
-          <span className="due-date">
-            <CalendarDays size={12} />
-            {dateLabel(issue.due_date)}
+          <span className="due-date" title="Due date">
+            Due {dateLabel(issue.due_date)}
           </span>
         )}
         <span className="card-spacer" />
@@ -558,7 +571,7 @@ export default function TeamPage() {
               {n.name}
               {n.name === "Later" && (
                 <span className="nav-count">
-                  {issues.filter((i) => i.status === "backlog").length}
+                  {laterIssues.length}
                 </span>
               )}
             </button>
@@ -809,6 +822,9 @@ export default function TeamPage() {
                   </button>
                 </nav>
               )}
+              {["Projects", "Tasks", "Later", "Progress", "Plans"].includes(view) && (
+                <AssignedDateFilter value={dateFilter} onChange={setDateFilter} />
+              )}
               {view === "Projects" && (
                 <section className="projects-overview">
                   <div className="space-summary">
@@ -868,7 +884,7 @@ export default function TeamPage() {
                   <div className="project-grid">
                     {projects.map((p) => {
                       const tasks = (data?.issues ?? []).filter(
-                        (i) => i.project_id === p.id,
+                        (i) => i.project_id === p.id && matchesAssignedDate(i.assigned_date, dateFilter),
                       );
                       const done = tasks.filter(
                         (i) => i.status === "completed",
@@ -1094,7 +1110,7 @@ export default function TeamPage() {
                           <h2>{col.name}</h2>
                           <span className="column-count">
                             {
-                              visible(boardIssues).filter((i) =>
+                              boardIssues.filter((i) =>
                                 inColumn(i.status, col.status),
                               ).length
                             }
@@ -1108,14 +1124,14 @@ export default function TeamPage() {
                           </button>
                         </header>
                         <div className="column-cards">
-                          {visible(boardIssues)
+                          {boardIssues
                             .filter((i) => inColumn(i.status, col.status))
                             .map(issueCard)}
-                          {visible(boardIssues).filter((i) =>
+                          {boardIssues.filter((i) =>
                             inColumn(i.status, col.status),
                           ).length === 0 && (
                             <div className="column-empty">
-                              No tasks here yet.
+                              No tasks match these filters.
                               <br />
                               Drop a task here or create one.
                             </div>
@@ -1159,7 +1175,7 @@ export default function TeamPage() {
                       <h2>
                         Saved for later{" "}
                         <span className="count-badge">
-                          {issues.filter((i) => i.status === "backlog").length}
+                          {laterIssues.length}
                         </span>
                       </h2>
                       <p>
@@ -1179,10 +1195,10 @@ export default function TeamPage() {
                       <span>Task</span>
                       <span>Priority</span>
                       <span>Person</span>
-                      <span>Due</span>
+                      <span>Assigned</span>
                       <span>Plan</span>
                     </div>
-                    {visible(issues.filter((i) => i.status === "backlog")).map(
+                    {laterIssues.map(
                       (issue) => (
                         <div className="table-row" key={issue.id}>
                           <button onClick={() => openIssue(issue)}>
@@ -1203,9 +1219,9 @@ export default function TeamPage() {
                             small
                           />
                           <span className="muted">
-                            {issue.due_date
-                              ? dateLabel(issue.due_date)
-                              : "No date"}
+                            {issue.assigned_date
+                              ? dateLabel(issue.assigned_date)
+                              : "No assigned date"}
                           </span>
                           <button
                             className="btn text"
@@ -1218,7 +1234,7 @@ export default function TeamPage() {
                       ),
                     )}
                   </div>
-                  {!visible(issues.filter((i) => i.status === "backlog"))
+                  {!laterIssues
                     .length && (
                     <div className="empty-state">
                       <ListTodo size={30} />
@@ -1257,7 +1273,7 @@ export default function TeamPage() {
                   )}
                   <div className="sprint-list">
                     {[...sprints].reverse().map((s) => {
-                      const tasks = issues.filter((i) => i.sprint_id === s.id);
+                      const tasks = datedIssues.filter((i) => i.sprint_id === s.id);
                       const done = tasks.filter(
                         (i) => i.status === "completed",
                       );
@@ -1366,7 +1382,7 @@ export default function TeamPage() {
                       { status: "backlog", name: "Later", color: "slate" },
                       ...columns,
                     ].map((c) => {
-                      const count = issues.filter((i) =>
+                      const count = datedIssues.filter((i) =>
                         inColumn(i.status, c.status as Status),
                       ).length;
                       return (
@@ -1376,7 +1392,7 @@ export default function TeamPage() {
                             <i
                               className={c.color}
                               style={{
-                                width: `${issues.length ? (count / issues.length) * 100 : 0}%`,
+                                width: `${datedIssues.length ? (count / datedIssues.length) * 100 : 0}%`,
                               }}
                             />
                           </div>
@@ -1399,7 +1415,7 @@ export default function TeamPage() {
                         <span>{personName(m.email)}</span>
                         <b>
                           {
-                            issues.filter(
+                            datedIssues.filter(
                               (i) =>
                                 i.assignee_id === m.id &&
                                 i.status !== "completed",
@@ -1425,7 +1441,7 @@ export default function TeamPage() {
                           <span>{planLabel(s.name)}</span>
                           <b>
                             {
-                              issues.filter(
+                              datedIssues.filter(
                                 (i) =>
                                   i.sprint_id === s.id &&
                                   i.status === "completed",
@@ -1655,6 +1671,15 @@ export default function TeamPage() {
                     A title is all you need. Everything else can wait.
                   </p>
                   <div className="form-grid">
+                    <label>
+                      Assigned date
+                      <input
+                        type="date"
+                        value={draft.assigned_date ?? ""}
+                        onChange={(e) => setDraft({ ...draft, assigned_date: e.target.value || null })}
+                      />
+                      <span className="form-helper">Used for date filters and progress, even if the task is completed on another day.</span>
+                    </label>
                     <label>
                       Who will do it?
                       <select
@@ -2389,7 +2414,7 @@ export default function TeamPage() {
                 href={
                   "data:text/csv;charset=utf-8," +
                   encodeURIComponent(
-                    "Task,Status,Due date,Notes\nPrepare the presentation,To do,,Add the latest photos\nBook the meeting room,Doing,,\nShare the agenda,Done,,\nPlan the next event,Later,,\n",
+                    "Task,Status,Assigned date,Due date,Notes\nPrepare the presentation,To do,,,Add the latest photos\nBook the meeting room,Doing,,,\nShare the agenda,Done,,,\nPlan the next event,Later,,,\n",
                   )
                 }
               >

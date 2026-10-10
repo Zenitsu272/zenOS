@@ -26,9 +26,11 @@ The space opens on **Projects**. Choose a project to open **Tasks**, with three 
 
 Adding a task needs only a title. A person, due date, and notes are optional. Status, importance, a group, a work plan, and completion details live under **More options**. Existing task types and estimates are preserved when editing but are no longer required or displayed in the everyday interface.
 
+Each shared task has a separate optional **Assigned date**. New tasks default to today (or the selected filter date); existing tasks remain undated until edited. Filter by today, a specific date, an inclusive date range, or no assigned date. Project summaries, board counts, Later, work-plan task counts, and Progress use that assigned date. Changing a deadline or completing a task does not move it to another assigned date.
+
 **Later** holds ideas to return to. **People** shows the team. **Progress** counts finished tasks. **Work plans** are optional groups of tasks with a shared goal and dates; the existing sprint rules still apply underneath. The main task view includes work with no plan, so people can start using the app immediately.
 
-**Upload tasks** includes a downloadable example. CSV headers can be `Task,Status,Due date,Notes`; statuses can be `To do`, `Doing`, `Done`, or `Later`. A file containing only the Task column works too. Original API/CSV field names remain supported.
+**Upload tasks** includes a downloadable example. CSV headers can be `Task,Status,Assigned date,Due date,Notes`; statuses can be `To do`, `Doing`, `Done`, or `Later`. A file containing only the Task column works too. Original API/CSV field names remain supported.
 
 ## Project meetings
 

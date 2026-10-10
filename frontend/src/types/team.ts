@@ -40,6 +40,7 @@ export type IssueInput = {
   assignee_id: number | null;
   sprint_id: number | null;
   due_date: string | null;
+  assigned_date: string | null;
 };
 export type Issue = IssueInput & {
   id: number;

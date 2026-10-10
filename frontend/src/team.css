@@ -2089,6 +2089,46 @@
   color: #857492;
   font-size: 12px;
 }
+
+.assigned-date-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+  padding: 14px 16px;
+  border: 1px solid #eae6f0;
+  border-radius: 10px;
+  background: white;
+  color: #756781;
+  font-size: 12px;
+}
+.assigned-date-filter label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.assigned-date-filter select,
+.assigned-date-filter input {
+  min-height: 38px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #eae6f0;
+  border-radius: 6px;
+  background: #fbfaff;
+  color: inherit;
+  font: inherit;
+}
+.assigned-date-filter > span {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+.card-meta {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
 .extra-filters summary {
   cursor: pointer;
   padding: 10px 12px;
