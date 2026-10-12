@@ -36,7 +36,7 @@ import { useUiStore } from "../store/uiStore";
 import AccountMenu from "../components/AccountMenu";
 import ProjectMeetings from "../components/ProjectMeetings";
 import AssignedDateFilter from "../components/AssignedDateFilter";
-import { allAssignedDates, localDate, matchesAssignedDate } from "../lib/assignedDate";
+import { defaultAssignedDates, localDate, matchesAssignedDate } from "../lib/assignedDate";
 import type {
   Issue,
   IssueInput,
@@ -162,7 +162,7 @@ export default function TeamPage() {
   const [assignee, setAssignee] = useState("all");
   const [priority, setPriority] = useState("all");
   const [sprintFilter, setSprintFilter] = useState("current");
-  const [dateFilter, setDateFilter] = useState(allAssignedDates);
+  const [dateFilter, setDateFilter] = useState(defaultAssignedDates);
   const [modal, setModal] = useState<string | null>(null);
   const [editing, setEditing] = useState<Issue | null>(null);
   const [draft, setDraft] = useState<IssueInput>(blankIssue);
@@ -412,7 +412,7 @@ export default function TeamPage() {
     setAssignee("all");
     setPriority("all");
     setSprintFilter("current");
-    setDateFilter(allAssignedDates);
+    setDateFilter(defaultAssignedDates);
     setError("");
   }
   function switchProject(id: number, nextView = "Tasks") {

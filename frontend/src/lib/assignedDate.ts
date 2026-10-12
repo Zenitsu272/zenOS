@@ -4,7 +4,7 @@ export type AssignedDateFilter = {
   to: string;
 };
 
-export const allAssignedDates: AssignedDateFilter = { mode: "all", from: "", to: "" };
+export const defaultAssignedDates: AssignedDateFilter = { mode: "today", from: "", to: "" };
 
 // Calendar dates must not shift with UTC conversion (especially around midnight).
 export function localDate(date = new Date()): string {
