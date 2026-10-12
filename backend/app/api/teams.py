@@ -365,6 +365,26 @@ def review_meeting(team_id: int, project_id: int, meeting_id: int, payload: Meet
     return meeting_read(db, meeting)
 
 
+@router.delete("/{team_id}/membership", status_code=204)
+def leave_space(team_id: int, db: DbSession, user: CurrentUser):
+    member = membership(db, team_id, user.id, lock=True)
+    if db.get(Team, team_id).owner_id == user.id:
+        raise HTTPException(409, "The space owner cannot leave the space")
+    # Only access and unfinished assignments change; shared content and authorship stay.
+    db.execute(update(Issue).where(
+        Issue.team_id == team_id,
+        Issue.assignee_id == user.id,
+        Issue.status != "completed",
+    ).values(assignee_id=None))
+    db.execute(delete(ProjectMembership).where(
+        ProjectMembership.user_id == user.id,
+        ProjectMembership.project_id.in_(select(Project.id).where(Project.team_id == team_id)),
+    ))
+    db.delete(member)
+    log(db, team_id, user.id, "left the space")
+    db.commit()
+
+
 @router.delete("/{team_id}/members/{user_id}", status_code=204)
 def remove_member(team_id: int, user_id: int, db: DbSession, user: CurrentUser):
     membership(db, team_id, user.id, admin=True, lock=True)
