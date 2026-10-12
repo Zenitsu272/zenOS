@@ -194,6 +194,7 @@ export default function TeamPage() {
   }, [teams.data, teamId]);
   useEffect(() => {
     if (teamId) localStorage.setItem("zenos_team", String(teamId));
+    else localStorage.removeItem("zenos_team");
   }, [teamId]);
   useEffect(() => {
     if (!notice) return;
@@ -375,7 +376,33 @@ export default function TeamPage() {
     localStorage.removeItem("zenos_team");
     navigate("/login", { replace: true });
   }
-  function switchTeam(id: number) {
+  async function leaveSpace() {
+    if (!team || busy || isOwner) return;
+    const leaving = team;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/teams/${leaving.id}/membership`, { method: "DELETE" });
+      await Promise.all([
+        qc.cancelQueries({ queryKey: ["teams"] }),
+        qc.cancelQueries({ queryKey: ["team", leaving.id] }),
+        qc.cancelQueries({ queryKey: ["meetings", leaving.id] }),
+      ]);
+      const remaining = (qc.getQueryData<Team[]>(["teams"]) ?? []).filter((t) => t.id !== leaving.id);
+      qc.setQueryData(["teams"], remaining);
+      switchTeam(remaining[0]?.id ?? null);
+      qc.removeQueries({ queryKey: ["team", leaving.id] });
+      qc.removeQueries({ queryKey: ["meetings", leaving.id] });
+      localStorage.removeItem(`zenos_project_${leaving.id}`);
+      setNotice(`You left ${leaving.name}. Shared work has been kept.`);
+      void qc.invalidateQueries({ queryKey: ["teams"] });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function switchTeam(id: number | null) {
     setTeamId(id);
     setProjectId(null);
     setView("Projects");
@@ -836,15 +863,20 @@ export default function TeamPage() {
                           "All the projects you and your team are working on."}
                       </p>
                     </div>
-                    {isOwner && (
-                      <button
-                        className="btn secondary"
-                        onClick={() => openModal("edit-space")}
-                      >
-                        <Pencil size={16} />
-                        Edit space
+                    <div className="space-actions">
+                      {isOwner && (
+                        <button
+                          className="btn secondary"
+                          onClick={() => openModal("edit-space")}
+                        >
+                          <Pencil size={16} />
+                          Edit space
+                        </button>
+                      )}
+                      <button className="btn secondary" disabled={busy} onClick={() => openModal("leave-space")}>
+                        <LogOut size={16} /> Leave space
                       </button>
-                    )}
+                    </div>
                   </div>
                   <div className="space-access-note">
                     <Users size={17} />
@@ -1498,15 +1530,20 @@ export default function TeamPage() {
                         tasks.
                       </p>
                     </div>
-                    {isOwner && (
-                      <button
-                        className="btn secondary"
-                        onClick={() => openModal("invite")}
-                      >
-                        <Users size={16} />
-                        Invite people
+                    <div className="space-actions">
+                      {isOwner && (
+                        <button
+                          className="btn secondary"
+                          onClick={() => openModal("invite")}
+                        >
+                          <Users size={16} />
+                          Invite people
+                        </button>
+                      )}
+                      <button className="btn secondary" disabled={busy} onClick={() => openModal("leave-space")}>
+                        <LogOut size={16} /> Leave space
                       </button>
-                    )}
+                    </div>
                   </div>
                   {members.map((m) => (
                     <div className="member-row" key={m.id}>
@@ -1561,6 +1598,7 @@ export default function TeamPage() {
                     project: "Create a project",
                     "project-members": `Members of ${actionProject?.name ?? "project"}`,
                     "leave-project": "Leave this project?",
+                    "leave-space": isOwner ? "You own this space" : "Leave this space?",
                     "remove-project": "Remove this project?",
                     remove: "Remove access to this space?",
                     invite: "Better together",
@@ -1594,6 +1632,29 @@ export default function TeamPage() {
                   <span className="role-badge">{m.id === team?.owner_id ? "Space owner" : "Member"}</span>
                 </div>
               )) : <p className="hint">No one has joined yet. Use Join project to be the first.</p>}
+            </div>
+          )}
+          {modal === "leave-space" && team && (
+            <div className="modal-body">
+              {isOwner ? (
+                <>
+                  <p className="modal-intro">You are the owner of <strong>{team.name}</strong>.</p>
+                  <p className="hint">Owners cannot leave their space. Ownership transfer is not available yet, so your membership and all shared work will stay in place.</p>
+                  <div className="project-dialog-actions">
+                    <button className="btn secondary" onClick={() => setModal(null)}>Close</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="modal-intro">Leave <strong>{team.name}</strong> and all its projects?</p>
+                  <p className="hint">Tasks, assigned dates, projects, discussions, meetings, and history will stay. Your unfinished tasks will become unassigned; completed tasks keep their assignments. Your other spaces and personal tasks are unaffected.</p>
+                  <p className="hint">You will lose access to this space. You can rejoin with a valid invite link.</p>
+                  <div className="project-dialog-actions">
+                    <button className="btn secondary" disabled={busy} onClick={() => setModal(null)}>Cancel</button>
+                    <button className="btn danger" disabled={busy} onClick={() => void leaveSpace()}>{busy ? "Leaving…" : "Leave space"}</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
           {modal === "leave-project" && actionProject && (

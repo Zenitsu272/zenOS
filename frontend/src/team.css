@@ -2766,8 +2766,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.space-summary > button {
-  flex-shrink: 0;
+.space-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
 }
 .project-view-tabs {
   display: flex;
