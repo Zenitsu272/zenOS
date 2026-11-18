@@ -6,6 +6,57 @@ from pathlib import Path
 from sqlalchemy import create_engine, inspect, text
 
 
+def test_club_wings_backfill_only_the_two_existing_club_projects(tmp_path):
+    url = "sqlite:///" + (tmp_path / "club.db").as_posix()
+    env = {**os.environ, "DATABASE_URL": url, "ENVIRONMENT": "test"}
+    backend = Path(__file__).resolve().parents[1]
+
+    def upgrade(revision):
+        subprocess.run([sys.executable, "-m", "alembic", "upgrade", revision],
+                       cwd=backend, env=env, check=True, capture_output=True, text=True)
+
+    upgrade("0010_issue_assigned_date")
+    engine = create_engine(url)
+    with engine.begin() as db:
+        db.execute(text("PRAGMA foreign_keys=ON"))
+        db.execute(text("INSERT INTO users (id,email,hashed_password) VALUES (1,'owner@example.com','hash')"))
+        db.execute(text("""
+            INSERT INTO teams (id,name,key,invite_code,owner_id,invite_expires_at)
+            VALUES (4,'Intel IoT Club','INTEL','club-invite',1,'2027-01-01'),
+                   (8,'Other space','OTHER','other-invite',1,'2027-01-01'),
+                   (9,'Intel IoT Club','SECOND','second-invite',1,'2027-01-01')
+        """))
+        db.execute(text("""
+            INSERT INTO projects (id,team_id,name,description)
+            VALUES (11,4,'Website Team','Existing website'), (12,4,'Jev based resume screening','Screening'),
+                   (13,4,'Another club project','Leave ungrouped'), (14,8,'Website Team','Other website'),
+                   (15,8,'Jev based resume screening','Other screening'), (16,9,'Website Team','Namesake')
+        """))
+        db.execute(text("INSERT INTO memberships (id,team_id,user_id,role) VALUES (1,4,1,'admin')"))
+        db.execute(text("INSERT INTO project_memberships (project_id,user_id) VALUES (11,1),(12,1)"))
+        db.execute(text("""
+            INSERT INTO issues (id,team_id,project_id,reporter_id,assignee_id,title,description,
+                                acceptance_criteria,status,priority,issue_type,points,label,assigned_date)
+            VALUES (20,4,11,1,1,'Release','Keep details','','completed','High','Task',2,'','2026-11-18')
+        """))
+        db.execute(text("INSERT INTO issue_comments (issue_id,user_id,body) VALUES (20,1,'Release notes')"))
+        snapshots = {}
+        for table in ("teams", "projects", "memberships", "project_memberships", "issues", "issue_comments"):
+            snapshots[table] = db.execute(text(f"SELECT * FROM {table} ORDER BY 1")).mappings().all()
+
+    upgrade("0011_club_project_wings")
+    with engine.connect() as db:
+        assert db.execute(text("SELECT id,wings_enabled FROM teams ORDER BY id")).all() == [(4, 1), (8, 0), (9, 0)]
+        assert db.execute(text("SELECT id,wing FROM projects ORDER BY id")).all() == [
+            (11, "ai"), (12, "ai"), (13, None), (14, None), (15, None), (16, None),
+        ]
+        for table, before in snapshots.items():
+            columns = ",".join(before[0].keys())
+            assert db.execute(text(f"SELECT {columns} FROM {table} ORDER BY 1")).mappings().all() == before, table
+        assert db.execute(text("PRAGMA foreign_key_check")).all() == []
+    engine.dispose()
+
+
 def test_empty_legacy_folders_cleanup_keeps_all_lists_tasks_and_custom_folders(tmp_path):
     url = "sqlite:///" + (tmp_path / "empty_legacy.db").as_posix()
     env = {**os.environ, "DATABASE_URL": url, "ENVIRONMENT": "test"}
@@ -272,6 +323,10 @@ def test_empty_default_project_cleanup_preserves_user_projects_and_all_reference
             snapshots[table] = [dict(row) for row in connection.execute(text(f"SELECT * FROM {table} ORDER BY id")).mappings() if table != "projects" or row["id"] not in removable]
         for issue in snapshots["issues"]:
             issue["assigned_date"] = None
+        for team in snapshots["teams"]:
+            team["wings_enabled"] = False
+        for project in snapshots["projects"]:
+            project["wing"] = None
 
     migrate("upgrade", "head")
     migrate("check")

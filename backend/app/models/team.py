@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, String, Text, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -12,6 +12,7 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     key: Mapped[str] = mapped_column(String(10))
+    wings_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     invite_code: Mapped[str] = mapped_column(String(64), unique=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     invite_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc) + timedelta(days=7))
@@ -23,6 +24,9 @@ class Project(Base):
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text, default="")
+    wing: Mapped[str | None] = mapped_column(
+        String(16), CheckConstraint("wing IN ('ai', 'physical_ai')", name="ck_projects_wing")
+    )
 
 
 class Membership(Base):

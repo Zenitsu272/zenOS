@@ -35,6 +35,7 @@ def log(db, team_id, user_id, message):
 def team_read(team, member):
     is_owner = team.owner_id == member.user_id
     return {"id": team.id, "name": team.name, "description": team.description, "key": team.key, "owner_id": team.owner_id,
+            "wings_enabled": team.wings_enabled,
             "role": "admin" if is_owner else "member",
             "invite_code": team.invite_code if is_owner else None,
             "invite_expires_at": utc_expiry(team) if is_owner else None}
@@ -209,6 +210,11 @@ def rotate_invite(team_id: int, db: DbSession, user: CurrentUser):
 @router.post("/{team_id}/projects", status_code=201)
 def create_project(team_id: int, payload: ProjectCreate, db: DbSession, user: CurrentUser):
     membership(db, team_id, user.id, admin=True)
+    if db.get(Team, team_id).wings_enabled:
+        if payload.wing is None:
+            raise HTTPException(422, "Choose AI Wing or Physical AI Wing for this project")
+    elif payload.wing is not None:
+        raise HTTPException(422, "This space does not use project wings")
     project = Project(team_id=team_id, **payload.model_dump())
     db.add(project)
     log(db, team_id, user.id, f"created project {payload.name}")
