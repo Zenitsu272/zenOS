@@ -318,11 +318,6 @@
   font-size: 9px;
   flex-shrink: 0;
 }
-.sync-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
 .topbar-right > .icon-btn {
   margin-left: 12px;
 }
@@ -1671,7 +1666,6 @@
   .topbar-right {
     gap: 0;
   }
-  .topbar-right .sync-status,
   .topbar-right > .icon-btn {
     display: none;
   }

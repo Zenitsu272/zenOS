@@ -256,7 +256,7 @@ function ProjectMeetingsView({ teamId, project, issues, sprints, onChange }: Pro
   const queryClient = useQueryClient();
   const endpoint = `/teams/${teamId}/projects/${project.id}/meetings`;
   const queryKey = ["meetings", teamId, project.id];
-  const meetings = useQuery({ queryKey, queryFn: () => apiRequest<Meeting[]>(endpoint), refetchInterval: 15000, retry: false });
+  const meetings = useQuery({ queryKey, queryFn: () => apiRequest<Meeting[]>(endpoint), retry: false });
   const [tab, setTab] = useState<"scheduled" | "completed">("scheduled");
   const [dialog, setDialog] = useState<{ type: "schedule"; meetingId?: number } | { type: "review"; meetingId: number } | null>(null);
   const [notice, setNotice] = useState("");

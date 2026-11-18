@@ -61,7 +61,7 @@ A follow-up cleanup removes remaining empty legacy folders named Learning, Proje
 - Task discussions, activity feed, team workload, status distribution, and delivered points for completed sprints.
 - Project meetings with schedules, shared notes, task updates, and retained meeting history.
 - Atomic CSV import into the selected project, up to 200 tasks / 500 KB per upload. Try `sample-tasks.csv`. Imported tasks are not assigned to a work plan; add them to a plan through task details if needed.
-- Shared data refreshes every 10 seconds while the page is active. Task writes persist in the backend database. This is polling, not WebSocket collaboration; simultaneous edits use last-write-wins.
+- Your changes appear after you save. Reload the page to see another member’s latest changes. If two people edit the same task, the last save wins.
 
 ### Try locally on Windows
 

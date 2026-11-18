@@ -178,14 +178,12 @@ export default function TeamPage() {
   const teams = useQuery({
     queryKey: ["teams"],
     queryFn: () => apiRequest<Team[]>("/teams"),
-    refetchInterval: 10000,
   });
   const me = useQuery({ queryKey: ["me"], queryFn: getMe });
   const workspace = useQuery({
     queryKey: ["team", teamId],
     queryFn: () => apiRequest<Workspace>(`/teams/${teamId}/workspace`),
     enabled: !!teamId,
-    refetchInterval: 10000,
     retry: false,
   });
   useEffect(() => {
@@ -659,10 +657,6 @@ export default function TeamPage() {
             <span>/</span> {view}
           </div>
           <div className="topbar-right">
-            <span className="sync-status">
-              <span className="sync-dot" />
-              Updates automatically
-            </span>
             <button
               className="icon-btn"
               aria-label="How it works"
