@@ -17,7 +17,7 @@ export default function ProgressBars({ items }: { items: CategoryProgress[] }) {
               </span>
             </div>
             <div role="progressbar" aria-label={`${item.category_name} progress`} aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${item.progress}%` }} />
+              <div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${item.progress}%` }} />
             </div>
           </div>
         ))}

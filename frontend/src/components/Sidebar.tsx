@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  Zap,
   X,
 } from "lucide-react";
 import clsx from "clsx";
@@ -93,7 +94,7 @@ export default function Sidebar({
 
   const content = (
     <aside
-      className="flex h-full w-72 max-w-[calc(100vw-32px)] flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+      className="personal-sidebar flex h-full w-64 max-w-[calc(100vw-32px)] flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
       aria-label="Personal folders"
     >
       <div className="flex items-center justify-between px-5 py-5">
@@ -102,11 +103,11 @@ export default function Sidebar({
           type="button"
           onClick={() => chooseFolder(null)}
         >
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-            <Folder size={21} />
+          <span className="personal-mark">
+            <Zap size={23} fill="currentColor" />
           </span>
           <span className="text-left">
-            <span className="block text-lg font-extrabold text-slate-950 dark:text-white">
+            <span className="block text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white">
               zenOS
             </span>
             <span className="block text-xs text-slate-500">
@@ -146,7 +147,7 @@ export default function Sidebar({
           className={clsx(
             "mb-5 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold",
             selectedCategoryId === null
-              ? "bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+              ? "bg-violet-50 text-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
               : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-900",
           )}
           type="button"
@@ -168,7 +169,7 @@ export default function Sidebar({
         )}
         {!categories.length && (
           <div className="rounded-xl border border-dashed border-slate-200 p-4 dark:border-slate-700">
-            <p className="text-sm font-semibold">A place for your plans</p>
+            <p className="text-sm font-semibold">No folders yet</p>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               Create a folder above, then add lists to organize your tasks.
             </p>
@@ -239,7 +240,7 @@ export default function Sidebar({
                         className={clsx(
                           "min-w-0 flex-1 break-words rounded-lg px-2 py-2 text-left text-sm",
                           selectedSubbranchId === branch.id
-                            ? "bg-teal-50 font-semibold text-teal-800 dark:bg-teal-950 dark:text-teal-200"
+                            ? "bg-violet-50 font-semibold text-violet-800 dark:bg-violet-950 dark:text-violet-200"
                             : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900",
                         )}
                         onClick={() => {
@@ -286,7 +287,7 @@ export default function Sidebar({
                     </div>
                   ))}
                   <button
-                    className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-teal-700 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-950"
+                    className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950"
                     type="button"
                     aria-label={`Add a list to ${category.name}`}
                     onClick={() => onAddList(category.id)}
@@ -327,7 +328,7 @@ export default function Sidebar({
         <dialog
           ref={drawer}
           aria-label="Your folders"
-          className="m-0 h-dvh max-h-none w-72 max-w-[calc(100vw_-_32px)] border-0 p-0 backdrop:bg-slate-950/40 lg:hidden"
+          className="m-0 h-dvh max-h-none w-64 max-w-[calc(100vw_-_32px)] border-0 p-0 backdrop:bg-slate-950/40 lg:hidden"
           onCancel={(event) => {
             event.preventDefault();
             setSidebarOpen(false);

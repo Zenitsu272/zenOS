@@ -17,14 +17,14 @@ const accents = {
 
 export default function StatCard({ label, value, icon: Icon, accent }: Props) {
   return (
-    <article className="surface rounded-lg p-4">
+    <article className="personal-stat">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{label}</p>
-        <span className={`grid h-9 w-9 place-items-center rounded-md ${accents[accent]}`}>
-          <Icon size={18} />
+        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{label}</p>
+        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${accents[accent]}`}>
+          <Icon size={14} />
         </span>
       </div>
-      <p className="mt-4 text-3xl font-extrabold text-slate-950 dark:text-white">{value}</p>
+      <p className="personal-stat-value">{value}</p>
     </article>
   );
 }

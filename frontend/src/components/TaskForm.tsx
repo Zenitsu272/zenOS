@@ -196,10 +196,10 @@ export default function TaskForm({
             </label>
             <label className="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">
               How far along? {completed ? 100 : progress}%
-              <input className="mt-3 w-full accent-teal-600" type="range" min="0" max="100" value={completed ? 100 : progress} onChange={(event) => setProgress(Number(event.target.value))} disabled={completed} />
+              <input className="mt-3 w-full accent-violet-600" type="range" min="0" max="100" value={completed ? 100 : progress} onChange={(event) => setProgress(Number(event.target.value))} disabled={completed} />
             </label>
             <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">
-              <input type="checkbox" checked={completed} onChange={(event) => setCompleted(event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+              <input type="checkbox" checked={completed} onChange={(event) => setCompleted(event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
               This task is done
             </label>
           </div>

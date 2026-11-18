@@ -8,7 +8,11 @@ import {
   BarChart3,
   CalendarDays,
   Check,
-  CheckCheck,
+  CircleCheck,
+  CircleDashed,
+  CircleDot,
+  Menu,
+  SlidersHorizontal,
   ChevronDown,
   CircleHelp,
   Copy,
@@ -23,6 +27,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
   Upload,
   Users,
   Video,
@@ -48,6 +53,8 @@ import type {
   Workspace,
 } from "../types/team";
 import "../team.css";
+import "../workspace-shell.css";
+import "../team-views.css";
 
 const columns: { status: Status; name: string; color: string }[] = [
   { status: "scheduled", name: "To do", color: "slate" },
@@ -123,6 +130,7 @@ function Modal({
   return (
     <dialog
       ref={ref}
+      aria-label={title}
       className={`team-modal ${wide ? "wide" : ""}`}
       onCancel={(event) => {
         event.preventDefault();
@@ -154,6 +162,8 @@ export default function TeamPage() {
     () => Number(localStorage.getItem("zenos_team")) || null,
   );
   const [view, setView] = useState("Projects");
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const navigationToggle = useRef<HTMLButtonElement>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
   const [actionProject, setActionProject] = useState<Project | null>(null);
@@ -468,12 +478,13 @@ export default function TeamPage() {
         aria-label={`Open ${issue.title}`}
       >
         <div className="card-top">
-          <span>
+          <span className="issue-key">{team?.key}-{issue.id}</span>
+          <span className="issue-kind">
             {issue.status === "review"
               ? "Needs a check"
               : issue.priority === "Urgent" || issue.priority === "High"
                 ? "Important"
-                : "Team task"}
+                : issue.issue_type}
           </span>
           <MoreHorizontal size={17} />
         </div>
@@ -544,13 +555,21 @@ export default function TeamPage() {
 
   return (
     <div className="team-app">
-      <aside className="team-sidebar">
+      <aside className="team-sidebar" onKeyDown={(event) => {
+        if (event.key === "Escape" && navigationOpen) {
+          setNavigationOpen(false);
+          navigationToggle.current?.focus();
+        }
+      }}>
         <Link to="/" className="brand">
           <span className="brand-mark">
             <Zap size={23} fill="currentColor" />
           </span>
           zenOS<span className="brand-team">teams</span>
         </Link>
+        <button type="button" className="mobile-nav-toggle" aria-label={navigationOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={navigationOpen} aria-controls="workspace-navigation" ref={navigationToggle}
+          onClick={() => setNavigationOpen(!navigationOpen)}>{navigationOpen ? <X size={20} /> : <Menu size={20} />}</button>
         <label className="workspace-picker">
           <span className="workspace-icon" aria-hidden="true">
             {team?.name.slice(0, 1) ?? "W"}
@@ -575,88 +594,83 @@ export default function TeamPage() {
             ))}
           </select>
         </label>
-        <p className="nav-label">TOGETHER</p>
-        <nav>
-          {[
-            { name: "Projects", icon: FolderKanban },
-            { name: "Tasks", icon: LayoutGrid },
-            { name: "Meetings", icon: Video },
-            { name: "Later", icon: ListTodo },
-            { name: "Progress", icon: BarChart3 },
-            { name: "People", icon: Users },
-          ].map((n) => (
+        <div className={`workspace-navigation ${navigationOpen ? "is-open" : ""}`} id="workspace-navigation">
+          <p className="nav-label">Workspace</p>
+          <nav>
+            {[
+              { name: "Projects", icon: FolderKanban },
+              { name: "Tasks", icon: LayoutGrid },
+              { name: "Meetings", icon: Video },
+              { name: "Later", icon: ListTodo },
+              { name: "Progress", icon: BarChart3 },
+              { name: "People", icon: Users },
+            ].map((n) => (
+              <button
+                key={n.name}
+                aria-current={view === n.name ? "page" : undefined}
+                className={view === n.name ? "active" : ""}
+                disabled={projectPages.includes(n.name) && !currentProject}
+                title={projectPages.includes(n.name) && !currentProject ? "Available after the first project is created" : undefined}
+                onClick={() => { setView(n.name); setNavigationOpen(false); }}
+              >
+                <n.icon size={18} />
+                {n.name}
+                {n.name === "Later" && (
+                  <span className="nav-count">
+                    {laterIssues.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+          <div className="sidebar-divider" />
+          <p className="nav-label">Tools</p>
+          <nav>
             <button
-              key={n.name}
-              className={view === n.name ? "active" : ""}
-              disabled={projectPages.includes(n.name) && !currentProject}
-              title={projectPages.includes(n.name) && !currentProject ? "Available after the first project is created" : undefined}
-              onClick={() => setView(n.name)}
+              className={view === "Plans" ? "active" : ""}
+              disabled={!currentProject}
+              title={!currentProject ? "Available after the first project is created" : undefined}
+              onClick={() => { setView("Plans"); setNavigationOpen(false); }}
+              aria-current={view === "Plans" ? "page" : undefined}
             >
-              <n.icon size={18} />
-              {n.name}
-              {n.name === "Later" && (
-                <span className="nav-count">
-                  {laterIssues.length}
-                </span>
-              )}
+              <CalendarDays size={18} />
+              Work plans
             </button>
-          ))}
-        </nav>
-        <div className="sidebar-divider" />
-        <p className="nav-label">MORE</p>
-        <nav>
-          <button
-            className={view === "Plans" ? "active" : ""}
-            disabled={!currentProject}
-            title={!currentProject ? "Available after the first project is created" : undefined}
-            onClick={() => setView("Plans")}
-          >
-            <CalendarDays size={18} />
-            Work plans <small className="optional-label">Optional</small>
-          </button>
-          <button onClick={() => openModal("workspace")}>
-            <Plus size={18} />
-            New space
-          </button>
-          <Link to="/personal">
-            <FolderKanban size={18} />
-            Personal tasks
-          </Link>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="team-tip">
-            <span>
-              <Zap size={16} /> Small steps. Shared wins.
-            </span>
-            <p>
-              Plan together. Build with focus.
-              <br />
-              One task at a time.
-            </p>
-            <button onClick={() => openModal("guide")}>
-              How it works <ArrowRight size={14} />
+            <button onClick={() => { setNavigationOpen(false); openModal("workspace"); }}>
+              <Plus size={18} />
+              New space
+            </button>
+            <Link to="/personal">
+              <FolderKanban size={18} />
+              Personal tasks
+            </Link>
+          </nav>
+          <div className="sidebar-bottom">
+            <button className="sidebar-guide" onClick={() => { setNavigationOpen(false); openModal("guide"); }}>
+              <CircleHelp size={17} /> How it works
+            </button>
+            <button
+              className="profile"
+              onClick={logout}
+            >
+              <Avatar member={me.data ? { ...me.data, role: "" } : undefined} />
+              <span>
+                <b>{me.data ? personName(me.data.email) : "Your account"}</b>
+                <small>Log out</small>
+              </span>
+              <LogOut size={16} />
             </button>
           </div>
-          <button
-            className="profile"
-            onClick={logout}
-          >
-            <Avatar member={me.data ? { ...me.data, role: "" } : undefined} />
-            <span>
-              <b>{me.data ? personName(me.data.email) : "Your account"}</b>
-              <small>Log out</small>
-            </span>
-            <LogOut size={16} />
-          </button>
         </div>
       </aside>
       <main className="team-main">
         <header className="topbar">
           <div className="breadcrumb">
-            Space <span>/</span> <b>{team?.name ?? "Getting started"}</b>{" "}
+            <LayoutGrid size={15} aria-hidden="true" /> <span>/</span> <b>{team?.name ?? "Getting started"}</b>{" "}
             <span>/</span> {view}
           </div>
           <div className="topbar-right">
+            <time className="workspace-date" dateTime={localDate()}>{new Date().toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}</time>
             <button
               className="icon-btn"
               aria-label="How it works"
@@ -675,35 +689,7 @@ export default function TeamPage() {
         <div className="team-content">
           <div className="page-heading">
             <div>
-              <div className="eyebrow">BUILD SOMETHING GREAT, TOGETHER</div>
-              <h1>
-                {view === "Tasks"
-                  ? "Our tasks"
-                  : view === "People"
-                    ? "Your team"
-                    : view}
-              </h1>
-              <p>
-                {
-                  (
-                    {
-                      Tasks:
-                        "Everyone knows what to do, who’s doing it, and what’s done.",
-                      Later: "Ideas and tasks you’re not ready to start yet.",
-                      Plans:
-                        "Optional: group tasks around a shared goal and dates.",
-                      Progress:
-                        "See what’s finished and who’s working on what.",
-                      People:
-                        "Everyone with access to this space and its projects.",
-                      Projects:
-                        "Separate projects. One place to work together.",
-                      Meetings:
-                        "Plan a conversation, capture decisions, and keep work moving.",
-                    } as Record<string, string>
-                  )[view]
-                }
-              </p>
+              <h1>{view === "Tasks" ? "Task board" : view === "Plans" ? "Work plans" : view}</h1>
             </div>
             <div className="heading-actions">
               {view === "Projects" && (
@@ -804,58 +790,66 @@ export default function TeamPage() {
                       ))}
                     </select>
                   </label>
-                  <span className="project-context-description">
-                    {currentProject.description ||
-                      "Tasks, meetings, and work plans for this project"}
-                  </span>
+                  {currentProject.description && <p className="project-context-description">{currentProject.description}</p>}
                   <button className="btn secondary" onClick={() => openProjectAction(currentProject, "project-members")}>
                     <Users size={15} /> Members ({projectMembers.length})
                   </button>
-                  <button className="btn secondary" disabled={busy}
-                    onClick={() => joinedCurrentProject ? openProjectAction(currentProject, "leave-project") : joinProject(currentProject)}>
-                    {joinedCurrentProject ? <LogOut size={15} /> : <Users size={15} />}
-                    {joinedCurrentProject ? "Leave project" : "Join project"}
-                  </button>
-                  {isOwner && <button className="btn text remove-member" onClick={() => openProjectAction(currentProject, "remove-project")}>Remove project</button>}
-                  <button
-                    className="btn text"
-                    onClick={() => setView("Projects")}
-                  >
-                    All projects <ArrowRight size={15} />
-                  </button>
+                  <details className="project-options" key={currentProject.id}
+                    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.open = false; }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.currentTarget.open = false; e.currentTarget.querySelector("summary")?.focus(); } }}>
+                    <summary aria-label="Project options" title="Project options"><MoreHorizontal size={18} /></summary>
+                    <div>
+                      <button className="btn secondary" disabled={busy}
+                        onClick={() => joinedCurrentProject ? openProjectAction(currentProject, "leave-project") : joinProject(currentProject)}>
+                        {joinedCurrentProject ? <LogOut size={15} /> : <Users size={15} />}
+                        {joinedCurrentProject ? "Leave project" : "Join project"}
+                      </button>
+                      {isOwner && <button className="btn text remove-member" onClick={() => openProjectAction(currentProject, "remove-project")}>Remove project</button>}
+                      <button
+                        className="btn text"
+                        onClick={() => setView("Projects")}
+                      >
+                        All projects <ArrowRight size={15} />
+                      </button>
+                    </div>
+                  </details>
                 </div>
               )}
               {view !== "People" && view !== "Projects" && currentProject && (
-                <nav className="project-view-tabs" aria-label="Project pages">
-                  <button
-                    className={view === "Tasks" ? "active" : ""}
-                    onClick={() => setView("Tasks")}
-                  >
-                    <LayoutGrid size={16} />
-                    Task board
-                  </button>
-                  <button
-                    className={view === "Meetings" ? "active" : ""}
-                    onClick={() => setView("Meetings")}
-                  >
-                    <Video size={16} />
-                    Meetings
-                  </button>
-                </nav>
+                <div className="board-view-bar">
+                  <nav className="project-view-tabs" aria-label="Project pages">
+                    <button
+                      aria-current={view === "Tasks" ? "page" : undefined}
+                      className={view === "Tasks" ? "active" : ""}
+                      onClick={() => setView("Tasks")}
+                    >
+                      <LayoutGrid size={16} />
+                      Task board
+                    </button>
+                    <button
+                      aria-current={view === "Meetings" ? "page" : undefined}
+                      className={view === "Meetings" ? "active" : ""}
+                      onClick={() => setView("Meetings")}
+                    >
+                      <Video size={16} />
+                      Meetings
+                    </button>
+                  </nav>
+                  {view !== "Meetings" && <AssignedDateFilter value={dateFilter} onChange={setDateFilter} />}
+                </div>
               )}
-              {["Projects", "Tasks", "Later", "Progress", "Plans"].includes(view) && (
+              {view === "Projects" && (
                 <AssignedDateFilter value={dateFilter} onChange={setDateFilter} />
               )}
               {view === "Projects" && (
                 <section className="projects-overview">
                   <div className="space-summary">
                     <div>
-                      <span className="eyebrow">YOUR SPACE</span>
                       <h2>{team.name}</h2>
-                      <p>
-                        {team.description ||
-                          "All the projects you and your team are working on."}
-                      </p>
+                      {team.description && <p>{team.description}</p>}
+                      <button className="space-member-link" onClick={() => setView("People")}>
+                        <Users size={15} /> {members.length} {members.length === 1 ? "member" : "members"} <ArrowRight size={14} />
+                      </button>
                     </div>
                     <div className="space-actions">
                       {isOwner && (
@@ -872,20 +866,8 @@ export default function TeamPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="space-access-note">
-                    <Users size={17} />
-                    <span>
-                      {members.length}{" "}
-                      {members.length === 1 ? "person has" : "people have"}{" "}
-                      access to this space. Everyone can view its projects.
-                      Join a project to appear in its task assignment list.
-                    </span>
-                  </div>
                   <div className="section-heading">
-                    <h2>
-                      {projects.length}{" "}
-                      {projects.length === 1 ? "project" : "projects"}
-                    </h2>
+                    <h2>{projects.length} {projects.length === 1 ? "project" : "projects"}</h2>
                     {isOwner && (
                       <button
                         className="btn primary"
@@ -896,6 +878,7 @@ export default function TeamPage() {
                       </button>
                     )}
                   </div>
+                  {projects.length > 0 && <p className="project-join-note">Join a project to receive task assignments.</p>}
                   {!projects.length && (
                     <div className="empty-state compact">
                       <FolderKanban size={32} />
@@ -918,53 +901,36 @@ export default function TeamPage() {
                       const active = (data?.sprints ?? []).find(
                         (s) => s.project_id === p.id && s.status === "active",
                       );
+                      const participants = projectMemberships.filter((m) => m.project_id === p.id);
+                      const joined = participants.some((m) => m.user_id === me.data?.id);
                       return (
                         <article
                           className="project-card"
                           key={p.id}
                         >
                           <button className="project-card-open" onClick={() => switchProject(p.id)} aria-label={`Open ${p.name}`}>
-                          <div className="project-card-top">
-                            <span className="project-context-icon">
-                              <FolderKanban size={22} />
+                            <span className="project-card-top">
+                              <span className="project-context-icon"><FolderKanban size={21} /></span>
+                              <ArrowRight size={17} />
                             </span>
-                            <ArrowRight size={18} />
-                          </div>
-                          <h2>{p.name}</h2>
-                          <p>
-                            {p.description ||
-                              "A shared board for your team’s tasks."}
-                          </p>
-                          <div className="project-card-counts">
-                            <span>
-                              {
-                                tasks.filter((i) => i.status !== "completed")
-                                  .length
-                              }{" "}
-                              open
+                            <span className="project-card-title">{p.name}</span>
+                            {p.description && <span className="project-card-description">{p.description}</span>}
+                            {active && <span className="project-plan"><Zap size={13} />{planLabel(active.name)} · in progress</span>}
+                            <span className="project-card-counts">
+                              <span><b>{tasks.length - done}</b> open</span>
+                              <span><b>{done}</b> done</span>
                             </span>
-                            <span>{done} done</span>
-                          </div>
-                          <div className="project-card-progress">
-                            <i
-                              style={{
-                                width: `${tasks.length ? (done / tasks.length) * 100 : 0}%`,
-                              }}
-                            />
-                          </div>
-                          <small>
-                            {active
-                              ? `${planLabel(active.name)} · in progress`
-                              : "Open task board"}
-                          </small>
+                            <span className="project-card-progress" aria-hidden="true">
+                              <i style={{ width: `${tasks.length ? (done / tasks.length) * 100 : 0}%` }} />
+                            </span>
                           </button>
                           <div className="project-card-members">
-                            <button className="btn text" onClick={() => openProjectAction(p, "project-members")} aria-label={`View members of ${p.name}`}><Users size={14} /> {projectMemberships.filter((m) => m.project_id === p.id).length} members</button>
-                            <button className="btn secondary" disabled={busy} onClick={() => projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? openProjectAction(p, "leave-project") : joinProject(p)}>
-                              {projectMemberships.some((m) => m.project_id === p.id && m.user_id === me.data?.id) ? "Leave project" : "Join project"}
+                            <button className="btn text" onClick={() => openProjectAction(p, "project-members")} aria-label={`View members of ${p.name}`}><Users size={15} /> {participants.length} {participants.length === 1 ? "member" : "members"}</button>
+                            <button className="btn secondary" disabled={busy} onClick={() => joined ? openProjectAction(p, "leave-project") : joinProject(p)}>
+                              {joined ? "Leave project" : "Join project"}
                             </button>
+                            {isOwner && <button className="btn text remove-member project-remove" onClick={() => openProjectAction(p, "remove-project")} aria-label={`Remove project ${p.name}`} title="Remove project"><Trash2 size={15} /></button>}
                           </div>
-                          {isOwner && <button className="btn text remove-member project-remove" onClick={() => openProjectAction(p, "remove-project")} aria-label={`Remove project ${p.name}`}>Remove project</button>}
                         </article>
                       );
                     })}
@@ -985,24 +951,6 @@ export default function TeamPage() {
               )}
               {view === "Tasks" && currentProject && (
                 <>
-                  <section className="simple-intro">
-                    <span className="intro-icon">
-                      <CheckCheck size={25} />
-                    </span>
-                    <div>
-                      <h2>A little progress, together.</h2>
-                      <p>
-                        Add a task, choose who will do it, and mark it done when
-                        it's finished.
-                      </p>
-                    </div>
-                    <button
-                      className="btn text"
-                      onClick={() => openModal("guide")}
-                    >
-                      How it works <ArrowRight size={16} />
-                    </button>
-                  </section>
                   {selectedSprint && (
                     <div className="selected-plan">
                       <CalendarDays size={16} />
@@ -1016,23 +964,15 @@ export default function TeamPage() {
                       </button>
                     </div>
                   )}
-                  <div className="simple-summary">
-                    <span>
-                      <b>
-                        {
-                          boardIssues.filter((i) => i.status !== "completed")
-                            .length
-                        }
-                      </b>{" "}
-                      tasks to work on
-                    </span>
-                    <span>
-                      <b>{complete.length}</b> done
-                    </span>
-                    <span>
-                      <b>{projectMembers.length}</b> project members
-                    </span>
-                  </div>
+                  <section className="board-overview" aria-label="Board overview">
+                    <div className="overview-metric"><span><CircleDashed size={15} /> Open tasks</span><strong>{boardIssues.length - complete.length}</strong></div>
+                    <div className="overview-metric"><span><CircleCheck size={15} /> Completed</span><strong>{complete.length}</strong></div>
+                    <div className="overview-metric"><span><Users size={15} /> Members</span><strong>{projectMembers.length}</strong></div>
+                    <div className="overview-completion">
+                      <svg viewBox="0 0 46 46" aria-hidden="true"><circle className="ring-track" cx="23" cy="23" r="19" /><circle className="ring-value" cx="23" cy="23" r="19" pathLength="100" strokeDasharray={`${progress} 100`} /></svg>
+                      <div><strong>{progress}%</strong><span>Completion</span></div>
+                    </div>
+                  </section>
                 </>
               )}
               {currentProject && (view === "Tasks" || view === "Later") && (
@@ -1061,7 +1001,7 @@ export default function TeamPage() {
                       ))}
                     </select>
                     <details className="extra-filters">
-                      <summary>More filters</summary>
+                      <summary><SlidersHorizontal size={15} /> More filters</summary>
                       <div>
                         {" "}
                         <select
@@ -1132,7 +1072,7 @@ export default function TeamPage() {
                         }}
                       >
                         <header className={`column-heading ${col.color}`}>
-                          <span className="column-dot" />
+                          <span className="lane-icon">{col.status === "completed" ? <CircleCheck size={17} /> : col.status === "ongoing" ? <CircleDot size={17} /> : <CircleDashed size={17} />}</span>
                           <h2>{col.name}</h2>
                           <span className="column-count">
                             {
@@ -1157,9 +1097,8 @@ export default function TeamPage() {
                             inColumn(i.status, col.status),
                           ).length === 0 && (
                             <div className="column-empty">
-                              No tasks match these filters.
-                              <br />
-                              Drop a task here or create one.
+                              <LayoutGrid size={18} aria-hidden="true" />
+                              No tasks in this column
                             </div>
                           )}
                           <button
@@ -1174,28 +1113,12 @@ export default function TeamPage() {
                     ))}
                   </section>
                   <footer className="board-footer">
-                    <span>
-                      <span className="sync-dot" />
-                      Changes save automatically
-                    </span>
-                    <span>
-                      Use Start task or Mark done. You can also drag tasks.
-                    </span>
+                    <span>Drag tasks between columns to update their status.</span>
                   </footer>
-                  <div className="progress-strip">
-                    <span>Tasks finished</span>
-                    <div>
-                      <i style={{ width: `${progress}%` }} />
-                    </div>
-                    <b>{progress}%</b>
-                    <span>
-                      {complete.length} of {boardIssues.length} tasks completed
-                    </span>
-                  </div>
                 </>
               )}
               {view === "Later" && currentProject && (
-                <section className="panel">
+                <section className="panel later-panel">
                   <div className="panel-heading">
                     <div>
                       <h2>
@@ -1222,7 +1145,7 @@ export default function TeamPage() {
                       <span>Priority</span>
                       <span>Person</span>
                       <span>Assigned</span>
-                      <span>Plan</span>
+                      <span>Action</span>
                     </div>
                     {laterIssues.map(
                       (issue) => (
@@ -1271,7 +1194,7 @@ export default function TeamPage() {
                 </section>
               )}
               {view === "Plans" && currentProject && (
-                <>
+                <section className="plans-overview">
                   <div className="section-heading">
                     <h2>
                       Work plans{" "}
@@ -1310,7 +1233,7 @@ export default function TeamPage() {
                               <div className="inline-heading">
                                 <h2>{planLabel(s.name)}</h2>
                                 <span
-                                  className={`status-pill ${s.status === "active" ? "In progress" : s.status === "completed" ? "Finished" : "Not started"}`}
+                                  className={`status-pill plan-${s.status}`}
                                 >
                                   {s.status === "active"
                                     ? "In progress"
@@ -1392,15 +1315,15 @@ export default function TeamPage() {
                       current plan before starting another.
                     </p>
                   )}
-                </>
+                </section>
               )}
               {view === "Progress" && currentProject && (
                 <div className="reports-grid">
                   <section className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h2>Where things stand</h2>
-                        <p>All your team’s tasks, at a glance</p>
+                        <h2>Task status</h2>
+                        <p>{datedIssues.length} {datedIssues.length === 1 ? "task" : "tasks"} in the selected dates</p>
                       </div>
                       <BarChart3 size={20} />
                     </div>
@@ -1430,27 +1353,24 @@ export default function TeamPage() {
                   <section className="panel">
                     <div className="panel-heading">
                       <div>
-                        <h2>Who’s doing what</h2>
+                        <h2>Team workload</h2>
                         <p>Open tasks assigned to each teammate</p>
                       </div>
                       <Users size={20} />
                     </div>
-                    {members.map((m) => (
-                      <div className="workload-row" key={m.id}>
-                        <Avatar member={m} small />
-                        <span>{personName(m.email)}</span>
-                        <b>
-                          {
-                            datedIssues.filter(
-                              (i) =>
-                                i.assignee_id === m.id &&
-                                i.status !== "completed",
-                            ).length
-                          }
-                        </b>
-                        <small>tasks</small>
-                      </div>
-                    ))}
+                    <div className="workload-list" role="region" aria-label="Open tasks by teammate" tabIndex={0}>
+                      {members.map((m) => (
+                        <div className="workload-row" key={m.id}>
+                          <Avatar member={m} small />
+                          <span>{personName(m.email)}</span>
+                          <b>
+                            {datedIssues.filter(
+                              (i) => i.assignee_id === m.id && i.status !== "completed",
+                            ).length}
+                          </b>
+                        </div>
+                      ))}
+                    </div>
                   </section>
                   <section className="panel">
                     <div className="panel-heading">
@@ -1488,7 +1408,6 @@ export default function TeamPage() {
                     <div className="panel-heading">
                       <div>
                         <h2>Recent updates</h2>
-                        <p>The latest updates from your team</p>
                       </div>
                       <Activity size={20} />
                     </div>
@@ -1512,7 +1431,7 @@ export default function TeamPage() {
                 </div>
               )}
               {view === "People" && (
-                <section className="panel">
+                <section className="panel people-panel">
                   <div className="panel-heading">
                     <div>
                       <h2>
@@ -1549,7 +1468,7 @@ export default function TeamPage() {
                         </b>
                         <small>{m.email}</small>
                       </div>
-                      <span className="role-badge">
+                      <span className={m.id === team.owner_id ? "role-badge owner-role" : "role-badge"}>
                         {m.id === team.owner_id ? "Space owner" : "Member"}
                       </span>
                       {isOwner && m.id !== team.owner_id && (

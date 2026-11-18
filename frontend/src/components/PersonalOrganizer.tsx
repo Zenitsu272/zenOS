@@ -82,7 +82,7 @@ export function PersonalHelp({ onClose }: { onClose: () => void }) {
           },
         ].map(({ icon: Icon, title, text }) => (
           <div key={title} className="flex items-start gap-3">
-            <span className="rounded-xl bg-teal-50 p-3 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+            <span className="rounded-xl bg-violet-50 p-3 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
               <Icon size={20} />
             </span>
             <div>

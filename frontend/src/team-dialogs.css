@@ -1,0 +1,105 @@
+/* The dialog element stays in the top layer, including on narrow screens. */
+dialog.team-modal {
+  max-height: min(90vh, 90dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: auto;
+  border: 1px solid #dedbe9;
+  border-radius: 17px;
+  background: #fff;
+  color: #302c40;
+  box-shadow: 0 21px 75px #24203632;
+}
+
+dialog.team-modal::backdrop {
+  background: #201b354b;
+  backdrop-filter: blur(3px);
+}
+
+dialog.team-modal > header {
+  gap: 16px;
+  padding: 18px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e8e5ef;
+}
+
+dialog.team-modal > header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+  color: #302c40;
+}
+
+dialog.team-modal > header .icon-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #696476;
+  background: #f6f5f9;
+}
+
+dialog.team-modal > header .icon-btn:hover { color: #4b3d70; background: #efebf7; }
+dialog.team-modal .modal-body { padding: 22px 24px; }
+dialog.team-modal .modal-body h3 { color: #373044; }
+dialog.team-modal .modal-intro,
+dialog.team-modal .hint,
+dialog.team-modal .form-helper,
+dialog.team-modal .playbook p { color: #635e72; line-height: 1.65; }
+
+dialog.team-modal label { min-width: 0; color: #494454; font-size: 13px; font-weight: 600; line-height: 1.5; }
+dialog.team-modal label small { color: #6a6476; font-size: 12px; font-weight: 400; }
+dialog.team-modal :is(input, select, textarea) {
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d9d5e3;
+  border-radius: 8px;
+  background: #fff;
+  color: #343041;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+dialog.team-modal :is(input, select, textarea):focus-visible {
+  outline: 2px solid #8067d2;
+  outline-offset: 1px;
+}
+
+dialog.team-modal :is(input, textarea)::placeholder { color: #797384; }
+dialog.team-modal :is(input, select, textarea):disabled { color: #706b79; background: #f5f4f7; }
+
+dialog.team-modal footer {
+  padding: 14px 24px;
+  border-top-color: #e8e5ef;
+  background: #fcfbfe;
+}
+
+dialog.team-modal .task-project-note,
+dialog.team-modal .task-options > summary,
+dialog.team-modal .template-download { color: #654da1; }
+dialog.team-modal .task-options > summary > span { color: #736c7e; }
+dialog.team-modal .comment { background: #f7f5fc; border: 1px solid #e8e4ef; border-radius: 9px; }
+dialog.team-modal .comment b { color: #625475; }
+dialog.team-modal .comment p { color: #48424e; }
+dialog.team-modal .modal-error { color: #93364b; background: #fff2f5; border-color: #efccd5; }
+
+@media (max-width: 600px) {
+  dialog.team-modal { width: calc(100vw - 24px); max-height: calc(100dvh - 32px); border-radius: 14px; }
+  dialog.team-modal > header,
+  dialog.team-modal .modal-body { padding: 17px; }
+  dialog.team-modal > header h2 { font-size: 18px; }
+  dialog.team-modal footer { padding: 12px 17px; }
+  dialog.team-modal footer .btn { min-height: 42px; }
+  dialog.team-modal :is(input, select, textarea) { font-size: 16px; }
+  dialog.team-modal .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-height: 540px) {
+  dialog.team-modal > header,
+  dialog.team-modal footer { position: static; }
+}

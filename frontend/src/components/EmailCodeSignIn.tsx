@@ -159,10 +159,10 @@ export default function EmailCodeSignIn({ next, onAuthenticated }: Props) {
   }
 
   return <section className="surface rounded-2xl p-6 sm:p-8" aria-label="Sign in with email">
-    <span className="mb-5 grid h-12 w-12 place-items-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300">{sentEmail ? <ShieldCheck size={25} /> : <Mail size={25} />}</span>
-    <h2 className="text-2xl font-bold text-slate-950 dark:text-white">{sentEmail ? "Check your email" : "Welcome to zenOS"}</h2>
-    {sentEmail ? <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Enter the six-digit code sent to <strong className="break-all font-semibold text-slate-700 dark:text-slate-200">{sentEmail}</strong>.</p> : <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Use your email to sign in or get started. No password needed.</p>}
-    {next && <p className="mt-4 rounded-lg bg-teal-50 px-3 py-2 text-xs leading-6 text-teal-800 dark:bg-teal-950/50 dark:text-teal-200">Your invitation is saved. You'll join the space after signing in.</p>}
+    <span className="mb-5 grid h-12 w-12 place-items-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300">{sentEmail ? <ShieldCheck size={25} /> : <Mail size={25} />}</span>
+    <h1 className="text-2xl font-bold text-slate-950 dark:text-white">{sentEmail ? "Check your email" : "Sign in to zenOS"}</h1>
+    {sentEmail ? <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Enter the six-digit code sent to <strong className="break-all font-semibold text-slate-700 dark:text-slate-200">{sentEmail}</strong>.</p> : <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">We'll email you a six-digit sign-in code.</p>}
+    {next && <p className="mt-4 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-6 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200">Your invitation is saved. You'll join the space after signing in.</p>}
 
     {!sentEmail ? <form className="mt-6" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Your email<input ref={emailInput} className="soft-input mt-2 py-3 text-base" type="email" name="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} required maxLength={320} disabled={!!busy} /></label>
@@ -191,13 +191,13 @@ export default function EmailCodeSignIn({ next, onAuthenticated }: Props) {
         disabled={!!busy}
       /></label>
       <p id="email-code-help" className={`mt-3 text-xs leading-6 ${expired ? "text-amber-700 dark:text-amber-300" : "text-slate-500 dark:text-slate-400"}`}>{expired ? "This code has expired. Send another code below." : expiresAt > 0 ? <>Code expires in {countdown(expiresIn)}. Check your spam folder if the email hasn't arrived.</> : "Codes expire 10 minutes after they're sent. Use the most recent code from your email."}</p>
-      {feedback && <p className="mt-3 text-sm text-teal-700 dark:text-teal-300" role="status">{feedback}</p>}
+      {feedback && <p className="mt-3 text-sm text-violet-700 dark:text-violet-300" role="status">{feedback}</p>}
       {error && <p id="email-code-error" className="mt-4 rounded-lg bg-red-50 p-3 text-sm leading-6 text-red-700 dark:bg-red-950/50 dark:text-red-300" role="alert">{error}</p>}
       {verifyWait > 0 && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Try verifying again in {countdown(verifyWait)}.</p>}
       <button className="primary-button mt-5 min-h-11 w-full" type="submit" disabled={!!busy || expired || verifyWait > 0 || code.length !== 6}>{busy === "verify" ? <Loader2 size={17} className="animate-spin" /> : <ArrowRight size={17} />}{busy === "verify" ? "Verifying…" : "Verify & continue"}</button>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <button className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800" type="button" onClick={changeEmail} disabled={!!busy}><ArrowLeft size={14} />Change email</button>
-        <button className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-300 dark:hover:bg-teal-950/40" type="button" onClick={() => void sendCode(true)} disabled={!!busy || sendWait > 0}>{busy === "resend" ? <><Loader2 size={14} className="animate-spin" />Sending…</> : sendWait > 0 ? `Resend in ${countdown(sendWait)}` : "Send another code"}</button>
+        <button className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300 dark:hover:bg-violet-950/40" type="button" onClick={() => void sendCode(true)} disabled={!!busy || sendWait > 0}>{busy === "resend" ? <><Loader2 size={14} className="animate-spin" />Sending…</> : sendWait > 0 ? `Resend in ${countdown(sendWait)}` : "Send another code"}</button>
       </div>
     </form>}
   </section>;

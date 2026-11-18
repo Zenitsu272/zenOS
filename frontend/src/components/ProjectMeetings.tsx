@@ -6,6 +6,7 @@ import { apiRequest } from "../api/client";
 import type { Issue, Project, Sprint, Status } from "../types/team";
 import type { Meeting, MeetingInput, MeetingReviewInput, MeetingTaskUpdate } from "../types/meeting";
 import "../meetings.css";
+import "../team-dialogs.css";
 
 interface Props {
   teamId: number;
@@ -25,6 +26,8 @@ const statusNames: Record<Status, string> = {
 const statuses = Object.keys(statusNames) as Status[];
 const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+const monthFormat = new Intl.DateTimeFormat(undefined, { month: "short" });
+const dayFormat = new Intl.DateTimeFormat(undefined, { day: "numeric" });
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 
 function localDateTime(value: string | Date) {
@@ -278,18 +281,83 @@ function ProjectMeetingsView({ teamId, project, issues, sprints, onChange }: Pro
     catch { setNotice("Meeting saved. Refresh the page to see the latest task board."); }
   }
 
+  const scheduleMeeting = () => {
+    setNotice("");
+    setDialog({ type: "schedule" });
+  };
+
   return <section className="project-meetings" aria-label={`${project.name} meetings`}>
-    <div className="meeting-section-heading"><div><h2>Make time to move work forward.</h2><p>Plan a conversation, capture decisions, and update tasks together.</p></div><button type="button" className="btn primary" onClick={() => { setNotice(""); setDialog({ type: "schedule" }); }}><Plus size={16} />Schedule meeting</button></div>
-    <div className="meeting-toolbar"><div className="meeting-tabs" aria-label="Meeting status"><button type="button" className={tab === "scheduled" ? "selected" : ""} onClick={() => setTab("scheduled")} aria-pressed={tab === "scheduled"}><CalendarDays size={15} />Upcoming<span>{items.filter((meeting) => meeting.status === "scheduled").length}</span></button><button type="button" className={tab === "completed" ? "selected" : ""} onClick={() => setTab("completed")} aria-pressed={tab === "completed"}><CheckCheck size={15} />Completed<span>{items.filter((meeting) => meeting.status === "completed").length}</span></button></div><p className="meeting-timezone"><Clock3 size={13} />Times shown in {localZone}</p></div>
+    <div className="meeting-toolbar">
+      <div className="meeting-tabs" role="group" aria-label="Meeting status">
+        <button type="button" aria-pressed={tab === "scheduled"} onClick={() => setTab("scheduled")}>
+          <CalendarDays size={16} />Upcoming<span>{items.filter((item) => item.status === "scheduled").length}</span>
+        </button>
+        <button type="button" aria-pressed={tab === "completed"} onClick={() => setTab("completed")}>
+          <CheckCheck size={16} />Completed<span>{items.filter((item) => item.status === "completed").length}</span>
+        </button>
+      </div>
+      <button type="button" className="btn primary" onClick={scheduleMeeting}>
+        <Plus size={16} />Schedule meeting
+      </button>
+    </div>
     {notice && <p className="meeting-notice" role="status"><Check size={16} />{notice}</p>}
-    {meetings.isPending ? <div className="meeting-empty"><Loader2 size={23} className="meeting-spin" /><p>Loading meetings…</p></div> : meetings.isError ? <div className="meeting-empty"><p className="meeting-error" role="alert">{meetings.error instanceof Error ? meetings.error.message : "We couldn't load meetings."}</p><button type="button" className="btn secondary" onClick={() => void meetings.refetch()}>Try again</button></div> : !visible.length ? <div className="meeting-empty"><span className="meeting-empty-icon">{tab === "scheduled" ? <Video size={28} /> : <History size={28} />}</span><h3>{tab === "scheduled" ? "Your next conversation starts here" : "A record of what moved forward"}</h3><p>{tab === "scheduled" ? "Schedule a meeting for this project. Keep the agenda, notes, and task updates in one place." : "Completed meetings appear here, along with their notes and saved task changes."}</p>{tab === "scheduled" && <button type="button" className="btn primary" onClick={() => setDialog({ type: "schedule" })}><Plus size={15} />Schedule a meeting</button>}</div> : <div className="meeting-grid">{visible.map((meeting) => <article className="meeting-card" key={meeting.id}>
-      <div className="meeting-card-top"><span className={`meeting-status ${meeting.status === "completed" ? "status-completed" : "status-scheduled"}`}>{meeting.status === "completed" ? "Completed" : "Upcoming"}</span>{meeting.status === "scheduled" && <button type="button" className="icon-btn" onClick={() => setDialog({ type: "schedule", meetingId: meeting.id })} aria-label={`Edit meeting ${meeting.title}`}><Pencil size={16} /></button>}</div>
-      <h3>{meeting.title}</h3><p className="meeting-card-time"><CalendarDays size={15} />{meetingTime(meeting)}</p>
-      <p className="meeting-card-agenda">{meeting.agenda || "No agenda added yet."}</p>
-      {meeting.status === "completed" && <div className="meeting-card-record"><p><FileText size={14} />{meeting.notes || "No meeting notes added yet."}</p><small>{meeting.task_updates.length} saved task {meeting.task_updates.length === 1 ? "update" : "updates"}</small></div>}
-      <p className="meeting-organizer">Scheduled by {meeting.created_by_email}</p>
-      <div className="meeting-card-actions"><button type="button" className="btn primary" onClick={() => setDialog({ type: "review", meetingId: meeting.id })}><FileText size={15} />Notes & task updates</button><MeetingLink value={meeting.meeting_url} /></div>
-    </article>)}</div>}
+    {meetings.isPending ? (
+      <div className="meeting-empty" role="status"><Loader2 size={22} className="meeting-spin" /><p>Loading meetings…</p></div>
+    ) : meetings.isError ? (
+      <div className="meeting-empty">
+        <p className="meeting-error" role="alert">{meetings.error instanceof Error ? meetings.error.message : "We couldn't load meetings."}</p>
+        <button type="button" className="btn secondary" onClick={() => void meetings.refetch()}>Try again</button>
+      </div>
+    ) : !visible.length ? (
+      <div className="meeting-empty">
+        <span className="meeting-empty-icon" aria-hidden="true">
+          {tab === "scheduled" ? <CalendarDays size={27} /> : <History size={27} />}
+        </span>
+        <h3>{tab === "scheduled" ? "No upcoming meetings" : "No completed meetings"}</h3>
+        <p>{tab === "scheduled" ? "Schedule the next meeting with your project team." : "Meeting notes and task updates appear here when a meeting is marked complete."}</p>
+      </div>
+    ) : (
+      <div className="meeting-list">
+        <div className="meeting-list-heading">
+          <h3>{tab === "scheduled" ? "Schedule" : "Meeting history"}</h3>
+          <p className="meeting-timezone"><Clock3 size={14} />{localZone}</p>
+        </div>
+        {visible.map((meeting) => {
+          const start = new Date(meeting.starts_at);
+          return <article className="meeting-card" key={meeting.id}>
+            <div className="meeting-date" aria-hidden="true">
+              <span>{monthFormat.format(start)}</span>
+              <strong>{dayFormat.format(start)}</strong>
+            </div>
+            <div className="meeting-card-content">
+              <div className="meeting-card-top">
+                <h4>{meeting.title}</h4>
+                {meeting.status === "scheduled" && (
+                  <button type="button" className="icon-btn" onClick={() => setDialog({ type: "schedule", meetingId: meeting.id })} aria-label={`Edit meeting ${meeting.title}`}>
+                    <Pencil size={15} />
+                  </button>
+                )}
+              </div>
+              <p className="meeting-card-time">{meetingTime(meeting)}</p>
+              {meeting.agenda && <p className="meeting-card-agenda">{meeting.agenda}</p>}
+              {meeting.status === "completed" && (
+                <div className="meeting-card-record">
+                  {meeting.notes && <p>{meeting.notes}</p>}
+                  <small>{meeting.task_updates.length} saved task {meeting.task_updates.length === 1 ? "update" : "updates"}</small>
+                </div>
+              )}
+              <p className="meeting-organizer">Scheduled by {meeting.created_by_email}</p>
+            </div>
+            <div className="meeting-card-actions">
+              <button type="button" className="btn secondary" onClick={() => setDialog({ type: "review", meetingId: meeting.id })}>
+                <FileText size={15} />Notes &amp; task updates
+              </button>
+              <MeetingLink value={meeting.meeting_url} />
+            </div>
+          </article>;
+        })}
+      </div>
+    )}
     {!meetings.isError && dialog?.type === "schedule" && (!dialog.meetingId || selected) && <ScheduleMeeting key={selected?.id ?? "new"} endpoint={endpoint} project={project} meeting={selected} onSave={saved} onClose={() => setDialog(null)} />}
     {!meetings.isError && dialog?.type === "review" && selected && <ReviewMeeting key={selected.id} endpoint={endpoint} meeting={selected} issues={projectIssues} sprints={projectSprints} onSave={saved} onClose={() => setDialog(null)} />}
   </section>;

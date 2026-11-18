@@ -12,6 +12,9 @@ import {
   ListPlus,
   ListChecks,
   LogOut,
+  ArrowUpRight,
+  ChevronRight,
+  FolderClosed,
   Moon,
   Plus,
   Search,
@@ -21,7 +24,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
-import clsx from "clsx";
 
 import { getMe } from "../api/auth";
 import KanbanBoard from "../components/KanbanBoard";
@@ -285,7 +287,7 @@ export default function DashboardPage() {
       : "My tasks";
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <main className="personal-workspace min-h-screen text-slate-900 dark:text-slate-100">
       <div className="flex">
         <Sidebar
           categories={categories}
@@ -310,65 +312,56 @@ export default function DashboardPage() {
         />
 
         <section className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-50/90 px-5 py-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90 lg:px-8">
-            <div className="ml-12 flex flex-wrap items-center justify-between gap-4 lg:ml-0">
-              <div>
-                <p className="text-sm font-bold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-300">
-                  Personal workspace
-                </p>
-                <h1 className="mt-1 break-words text-2xl font-extrabold text-slate-950 dark:text-white md:text-3xl">
-                  {pageTitle ?? "My tasks"}
-                </h1>
-                <p className="mt-1 text-xs text-slate-500">
-                  Just for you · {format(new Date(), "EEEE, MMM d")}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link to="/" className="secondary-button">
-                  Team spaces
-                </Link>
-                <button
-                  className="icon-button"
-                  onClick={() => setHelpOpen(true)}
-                  type="button"
-                  aria-label="How to use this"
-                  title="How to use this"
-                >
-                  <CircleHelp size={19} />
-                </button>
-                <button
-                  className="icon-button"
-                  onClick={toggleTheme}
-                  type="button"
-                  aria-label={
-                    theme === "dark" ? "Use light theme" : "Use dark theme"
-                  }
-                  title={theme === "dark" ? "Light theme" : "Dark theme"}
-                >
-                  {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-                </button>
-                <button
-                  className="icon-button border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
-                  onClick={logout}
-                  type="button"
-                  title="Log out"
-                >
-                  <LogOut size={18} />
-                </button>
-              </div>
+          <header className="personal-bar">
+            <div className="personal-crumb">
+              <FolderClosed size={16} aria-hidden="true" />
+              <span>Personal workspace</span>
+              <ChevronRight size={13} aria-hidden="true" />
+              <strong>{pageTitle ?? "My tasks"}</strong>
+            </div>
+            <div className="personal-tools">
+              <Link to="/" className="secondary-button">
+                Team spaces <ArrowUpRight size={14} />
+              </Link>
+              <button
+                className="icon-button"
+                onClick={() => setHelpOpen(true)}
+                type="button"
+                aria-label="How to use this"
+                title="How to use this"
+              >
+                <CircleHelp size={19} />
+              </button>
+              <button
+                className="icon-button"
+                onClick={toggleTheme}
+                type="button"
+                aria-label={
+                  theme === "dark" ? "Use light theme" : "Use dark theme"
+                }
+                title={theme === "dark" ? "Light theme" : "Dark theme"}
+              >
+                {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+              </button>
+              <button
+                className="icon-button border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                onClick={logout}
+                type="button"
+                title="Log out"
+              >
+                <LogOut size={18} />
+              </button>
             </div>
           </header>
 
-          <div className="space-y-6 px-5 py-6 lg:px-8">
+          <div className="personal-body space-y-6">
             <section
               aria-label="Create and organize"
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+              className="personal-heading"
             >
-              <div>
-                <h2 className="text-sm font-bold">Make it your own</h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Folders hold lists. Lists hold tasks.
-                </p>
+              <div className="min-w-0">
+                <p className="personal-date">{format(new Date(), "EEEE, MMMM d")}</p>
+                <h1>{pageTitle ?? "My tasks"}</h1>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -411,7 +404,7 @@ export default function DashboardPage() {
             {notice && (
               <p
                 role="status"
-                className="flex items-start gap-2 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-800 dark:bg-teal-950 dark:text-teal-200"
+                className="flex items-start gap-2 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800 dark:bg-violet-950 dark:text-violet-200"
               >
                 <Check size={18} className="shrink-0" />
                 {notice}
@@ -432,22 +425,16 @@ export default function DashboardPage() {
               !setupLoading &&
               !statsQuery.isPending &&
               !loadError && (
-                <section className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 via-white to-white p-6 dark:border-teal-900 dark:from-teal-950/40 dark:via-slate-900 dark:to-slate-900 sm:p-8">
-                  <span className="text-xs font-bold uppercase tracking-wider text-teal-700 dark:text-teal-300">
-                    Your space, your way
-                  </span>
-                  <h2 className="mt-3 text-2xl font-extrabold tracking-tight">
-                    A fresh start for your plans.
-                  </h2>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                    Start with what matters to you. A folder, a list, and one
-                    small task are all you need.
+                <section className="personal-onboarding">
+                  <h2 className="text-2xl font-bold tracking-tight">Set up your workspace</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    Organize your tasks into folders and lists.
                   </p>
                   <div className="my-6 grid gap-3 sm:grid-cols-3">
                     {[
                       {
                         title: "Create a folder",
-                        text: "Give a part of your life or work a home.",
+                        text: "Group your lists by project or area of work.",
                         icon: FolderPlus,
                         done: categories.length > 0,
                       },
@@ -459,11 +446,11 @@ export default function DashboardPage() {
                       },
                       {
                         title: "Add your first task",
-                        text: "Write it down. Tick it off when you're done.",
+                        text: "Choose a list and give your task a name.",
                         icon: ListChecks,
                         done: false,
                       },
-                    ].map(({ title, text, icon: Icon, done }, index) => (
+                    ].map(({ title, text, icon: Icon, done }) => (
                       <div
                         key={title}
                         className="rounded-xl border border-slate-200/80 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/80"
@@ -471,17 +458,15 @@ export default function DashboardPage() {
                         <div className="mb-3 flex items-center justify-between">
                           <Icon
                             size={21}
-                            className="text-teal-600 dark:text-teal-300"
+                            className="text-violet-600 dark:text-violet-300"
                           />
                           <span className="text-xs font-semibold text-slate-400">
-                            {done ? (
+                            {done && (
                               <Check
                                 size={16}
-                                className="text-teal-600"
+                                className="text-violet-600"
                                 aria-label="Complete"
                               />
-                            ) : (
-                              `0${index + 1}`
                             )}
                           </span>
                         </div>
@@ -523,7 +508,7 @@ export default function DashboardPage() {
                 </section>
               )}
             {hasTasks && (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="personal-stats">
                 <StatCard
                   label="Completed today"
                   value={stats?.tasks_completed_today ?? 0}
@@ -561,7 +546,7 @@ export default function DashboardPage() {
               setupLoading ||
               !statsQuery.isSuccess ||
               !!search) && (
-              <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+              <div className="grid min-w-0 gap-5 min-[1280px]:grid-cols-[minmax(0,1fr)_244px]">
                 <section className="space-y-5">
                   <label className="relative block">
                     <Search
@@ -576,16 +561,11 @@ export default function DashboardPage() {
                       placeholder="Search your tasks"
                     />
                   </label>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="personal-views" role="group" aria-label="Task views">
                     {views.map((view) => (
                       <button
                         key={view.key}
-                        className={clsx(
-                          "rounded-md px-4 py-2 text-sm font-bold transition",
-                          activeView === view.key
-                            ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
-                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800",
-                        )}
+                        aria-pressed={activeView === view.key}
                         onClick={() => setActiveView(view.key)}
                         type="button"
                       >
@@ -645,7 +625,7 @@ export default function DashboardPage() {
                       {visibleTasks.length === 0 && (
                         <div className="surface rounded-lg p-8 text-center">
                           <CalendarCheck2
-                            className="mx-auto text-teal-500"
+                            className="mx-auto text-violet-500"
                             size={32}
                           />
                           <h2 className="mt-3 text-lg font-bold text-slate-950 dark:text-white">
@@ -677,11 +657,11 @@ export default function DashboardPage() {
                   <div className="surface rounded-lg p-5">
                     <div className="flex items-center gap-2">
                       <Target
-                        className="text-teal-600 dark:text-teal-300"
+                        className="text-violet-600 dark:text-violet-300"
                         size={20}
                       />
                       <h2 className="text-lg font-bold text-slate-950 dark:text-white">
-                        Worth a look
+                        Suggested tasks
                       </h2>
                     </div>
                     <div className="mt-4 space-y-3">

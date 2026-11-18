@@ -7,7 +7,7 @@ export default function AssignedDateFilter({ value, onChange }: {
 }) {
   return (
     <div className="assigned-date-filter" role="group" aria-label="Filter tasks by assigned date">
-      <label>
+      <label title="Filter by the date a task was assigned">
         <CalendarDays size={16} /> Assigned date
         <select value={value.mode} onChange={(event) => onChange({
           ...value,
@@ -36,7 +36,6 @@ export default function AssignedDateFilter({ value, onChange }: {
           from: value.from && event.target.value && event.target.value < value.from ? event.target.value : value.from,
         })} />
       </label>}
-      <span>Tasks stay on their assigned date when rescheduled or completed.</span>
     </div>
   );
 }

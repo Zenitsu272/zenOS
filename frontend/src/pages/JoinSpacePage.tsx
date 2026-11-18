@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, BrainCircuit, FolderKanban, Loader2, LockKeyhole, Users } from "lucide-react";
+import { ArrowRight, FolderKanban, Loader2, LockKeyhole, Users } from "lucide-react";
 
+import WorkspaceEntry from "../components/WorkspaceEntry";
 import { apiRequest, getInvitePath } from "../api/client";
 import { getMe } from "../api/auth";
 import { getToken } from "../lib/storage";
@@ -68,12 +69,7 @@ export default function JoinSpacePage() {
   const next = invitePath ? `?next=${encodeURIComponent(invitePath)}` : "";
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top_left,#ccfbf1,transparent_40%),linear-gradient(135deg,#f8fafc,#f1f5f9_48%,#ecfeff)] px-5 py-10 dark:bg-none dark:bg-slate-950">
-      <div className="w-full max-w-lg">
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2 text-xl font-extrabold text-slate-900 dark:text-white">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-teal-600 text-white"><BrainCircuit size={21} /></span>
-          zenOS
-        </Link>
+    <WorkspaceEntry brandLink>
         <section className="surface rounded-2xl p-7 sm:p-9" aria-live="polite">
           {invitation.isLoading && invitePath ? (
             <div className="flex items-center justify-center gap-3 py-10 text-slate-500"><Loader2 className="animate-spin" size={20} /> Opening your invitation…</div>
@@ -87,13 +83,12 @@ export default function JoinSpacePage() {
             </>
           ) : invitation.data ? (
             <>
-              <div className="mb-5 grid h-12 w-12 place-items-center rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300"><Users size={25} /></div>
-              <p className="text-sm font-semibold text-teal-700 dark:text-teal-300">You've been invited</p>
+              <div className="mb-5 grid h-12 w-12 place-items-center rounded-xl bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300"><Users size={25} /></div>
+              <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">You've been invited</p>
               <h1 className="mt-2 break-words text-3xl font-bold text-slate-950 dark:text-white">Join {invitation.data.name}</h1>
-              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">A shared place for your team's projects, tasks, and updates.</p>
               <div className="my-6 space-y-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-                <p className="flex items-start gap-3"><FolderKanban size={18} className="mt-0.5 shrink-0 text-teal-600" /> See the projects and move tasks from To do to Doing to Done.</p>
-                <p className="flex items-start gap-3"><LockKeyhole size={18} className="mt-0.5 shrink-0 text-teal-600" /> Only members of this space can see its work.</p>
+                <p className="flex items-start gap-3"><FolderKanban size={18} className="mt-0.5 shrink-0 text-violet-600" /> See the projects and move tasks from To do to Doing to Done.</p>
+                <p className="flex items-start gap-3"><LockKeyhole size={18} className="mt-0.5 shrink-0 text-violet-600" /> Only members of this space can see its work.</p>
               </div>
               {signedIn ? (
                 <>
@@ -103,7 +98,7 @@ export default function JoinSpacePage() {
                     {joining ? <Loader2 size={17} className="animate-spin" /> : <ArrowRight size={17} />}
                     {joining ? "Opening your space…" : "Join space"}
                   </button>
-                  {!joining && <Link className="mt-4 block text-center text-sm font-medium text-teal-700 dark:text-teal-300" to={`/login${next}`}>Use a different account</Link>}
+                  {!joining && <Link className="mt-4 block text-center text-sm font-medium text-violet-700 dark:text-violet-300" to={`/login${next}`}>Use a different account</Link>}
                 </>
               ) : (
                 <>
@@ -111,11 +106,9 @@ export default function JoinSpacePage() {
                   <p className="mt-4 text-center text-sm text-slate-500">Sign in or create an account to accept this invitation.</p>
                 </>
               )}
-              <p className="mt-6 text-xs leading-5 text-slate-400">This invitation gives you access to this space and its projects.</p>
             </>
           ) : null}
         </section>
-      </div>
-    </main>
+    </WorkspaceEntry>
   );
 }

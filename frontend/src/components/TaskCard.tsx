@@ -22,13 +22,13 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: Props) 
   const overdue = dueDate && isPast(dueDate) && !task.completed && task.due_date !== format(new Date(), "yyyy-MM-dd");
 
   return (
-    <article className="surface rounded-lg p-4 transition hover:-translate-y-0.5">
+    <article className="surface personal-task-card p-4">
       <div className="flex items-start gap-3">
         <input
           type="checkbox"
           checked={task.completed}
           onChange={(event) => onComplete(event.target.checked)}
-          className="mt-1 h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+          className="mt-1 h-5 w-5 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
           aria-label={task.completed ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
         />
         <div className="min-w-0 flex-1">
@@ -37,7 +37,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: Props) 
               {task.title}
             </h3>
             <span className={`pill ${priorityClasses[task.priority]}`}>{task.priority} importance</span>
-            {task.task_type === "Long Term" && <span className="pill bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">Longer goal</span>}
+            {task.task_type === "Long Term" && <span className="pill bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">Longer goal</span>}
           </div>
           {task.description && <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words text-sm text-slate-600 dark:text-slate-300">{task.description}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -65,7 +65,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: Props) 
           {!task.completed && task.progress > 0 && <div className="mt-4">
             <p className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">{task.progress === 100 ? "Ready to mark done" : `${task.progress}% finished`}</p>
             <div role="progressbar" aria-label={`${task.title} progress`} aria-valuenow={task.progress} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${task.progress}%` }} />
+              <div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${task.progress}%` }} />
             </div>
           </div>}
         </div>
