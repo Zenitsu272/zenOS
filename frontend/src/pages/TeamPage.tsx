@@ -1,10 +1,13 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
+  BrainCircuit,
+  Cpu,
   BarChart3,
   CalendarDays,
   Check,
@@ -47,6 +50,7 @@ import type {
   IssueInput,
   Member,
   Project,
+  ProjectWing,
   Sprint,
   Status,
   Team,
@@ -62,6 +66,11 @@ const columns: { status: Status; name: string; color: string }[] = [
   { status: "completed", name: "Done", color: "green" },
 ];
 const projectPages = ["Tasks", "Meetings", "Later", "Progress", "Plans"];
+const wingChoices = [
+  { id: "ai", label: "AI Wing", icon: BrainCircuit },
+  { id: "physical_ai", label: "Physical AI Wing", icon: Cpu },
+] as const;
+type WingView = ProjectWing | "unassigned";
 const projectModals = ["issue", "sprint", "complete", "import"];
 const inColumn = (status: Status, column: Status) =>
   status === column || (column === "ongoing" && status === "review");
@@ -165,6 +174,7 @@ export default function TeamPage() {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const navigationToggle = useRef<HTMLButtonElement>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [selectedWing, setSelectedWing] = useState<WingView | null>(null);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
   const [actionProject, setActionProject] = useState<Project | null>(null);
   const [removeProjectName, setRemoveProjectName] = useState("");
@@ -212,7 +222,14 @@ export default function TeamPage() {
   // Do not keep displaying a cached space after a membership check fails.
   const data = workspace.isError ? undefined : workspace.data;
   const team = data?.team;
-  const projects = data?.projects ?? [];
+  const wingLanding = !!team?.wings_enabled && selectedWing === null;
+  const wingName = selectedWing === "unassigned" ? "Unassigned projects" : wingChoices.find((wing) => wing.id === selectedWing)?.label;
+  const projects = useMemo(() => {
+    if (!data) return [];
+    if (!data.team.wings_enabled) return data.projects;
+    if (!selectedWing) return [];
+    return data.projects.filter((project) => (project.wing ?? "unassigned") === selectedWing);
+  }, [data, selectedWing]);
   const currentProject =
     projects.find((p) => p.id === projectId) ?? projects[0];
   const issues = (data?.issues ?? []).filter(
@@ -240,16 +257,16 @@ export default function TeamPage() {
     new Date(team.invite_expires_at).getTime() <= Date.now();
   useEffect(() => {
     if (!data || !teamId) return;
-    if (!data.projects.length) {
+    if (!projects.length) {
       setProjectId(null);
-      localStorage.removeItem(`zenos_project_${teamId}`);
+      if (!data.projects.length) localStorage.removeItem(`zenos_project_${teamId}`);
       setView((current) => projectPages.includes(current) ? "Projects" : current);
       setModal((current) => current && projectModals.includes(current) ? null : current);
       setEditing(null);
       setClosingSprint(null);
       return;
     }
-    if (!data.projects.some((p) => p.id === projectId)) {
+    if (!projects.some((p) => p.id === projectId)) {
       if (projectId !== null) {
         setModal((current) => current && projectModals.includes(current) ? null : current);
         setEditing(null);
@@ -259,13 +276,12 @@ export default function TeamPage() {
         localStorage.getItem(`zenos_project_${teamId}`),
       );
       setProjectId(
-        data.projects.find((p) => p.id === remembered)?.id ??
-          data.projects[0].id,
+        projects.find((p) => p.id === remembered)?.id ?? projects[0].id,
       );
     } else {
       localStorage.setItem(`zenos_project_${teamId}`, String(projectId));
     }
-  }, [data, teamId, projectId]);
+  }, [data, teamId, projectId, projects]);
   const activeSprint = sprints.find((s) => s.status === "active");
   const selectedSprint = sprints.find((s) => String(s.id) === sprintFilter);
   const sprintIssues = selectedSprint
@@ -412,6 +428,7 @@ export default function TeamPage() {
   }
   function switchTeam(id: number | null) {
     setTeamId(id);
+    setSelectedWing(null);
     setProjectId(null);
     setView("Projects");
     setModal(null);
@@ -423,7 +440,11 @@ export default function TeamPage() {
     setDateFilter(defaultAssignedDates);
     setError("");
   }
-  function switchProject(id: number, nextView = "Tasks") {
+  function switchWing(wing: WingView | null) {
+    setSelectedWing(wing);
+    switchProject(null, "Projects");
+  }
+  function switchProject(id: number | null, nextView = "Tasks") {
     setProjectId(id);
     setView(nextView);
     setSearch("");
@@ -610,8 +631,12 @@ export default function TeamPage() {
                 aria-current={view === n.name ? "page" : undefined}
                 className={view === n.name ? "active" : ""}
                 disabled={projectPages.includes(n.name) && !currentProject}
-                title={projectPages.includes(n.name) && !currentProject ? "Available after the first project is created" : undefined}
-                onClick={() => { setView(n.name); setNavigationOpen(false); }}
+                title={projectPages.includes(n.name) && !currentProject ? (wingLanding ? "Choose a wing to see its projects" : "Available after the first project is created") : undefined}
+                onClick={() => {
+                  if (n.name === "Projects" && team?.wings_enabled) switchWing(null);
+                  else setView(n.name);
+                  setNavigationOpen(false);
+                }}
               >
                 <n.icon size={18} />
                 {n.name}
@@ -629,7 +654,7 @@ export default function TeamPage() {
             <button
               className={view === "Plans" ? "active" : ""}
               disabled={!currentProject}
-              title={!currentProject ? "Available after the first project is created" : undefined}
+              title={!currentProject ? (wingLanding ? "Choose a wing to see its projects" : "Available after the first project is created") : undefined}
               onClick={() => { setView("Plans"); setNavigationOpen(false); }}
               aria-current={view === "Plans" ? "page" : undefined}
             >
@@ -667,6 +692,9 @@ export default function TeamPage() {
         <header className="topbar">
           <div className="breadcrumb">
             <LayoutGrid size={15} aria-hidden="true" /> <span>/</span> <b>{team?.name ?? "Getting started"}</b>{" "}
+            {team?.wings_enabled && wingName && view !== "People" && (
+              <><span>/</span><button className="wing-crumb" onClick={() => setView("Projects")}>{wingName}</button></>
+            )}
             <span>/</span> {view}
           </div>
           <div className="topbar-right">
@@ -809,7 +837,7 @@ export default function TeamPage() {
                         className="btn text"
                         onClick={() => setView("Projects")}
                       >
-                        All projects <ArrowRight size={15} />
+                        {team.wings_enabled ? "Wing projects" : "All projects"} <ArrowRight size={15} />
                       </button>
                     </div>
                   </details>
@@ -838,103 +866,134 @@ export default function TeamPage() {
                   {view !== "Meetings" && <AssignedDateFilter value={dateFilter} onChange={setDateFilter} />}
                 </div>
               )}
-              {view === "Projects" && (
+              {view === "Projects" && !wingLanding && (
                 <AssignedDateFilter value={dateFilter} onChange={setDateFilter} />
               )}
               {view === "Projects" && (
                 <section className="projects-overview">
-                  <div className="space-summary">
-                    <div>
-                      <h2>{team.name}</h2>
-                      {team.description && <p>{team.description}</p>}
-                      <button className="space-member-link" onClick={() => setView("People")}>
-                        <Users size={15} /> {members.length} {members.length === 1 ? "member" : "members"} <ArrowRight size={14} />
-                      </button>
+                  {team.wings_enabled && selectedWing ? (
+                    <div className="wing-overview-heading">
+                      <button className="btn text" onClick={() => switchWing(null)}><ArrowLeft size={15} /> Back to wings</button>
+                      <h2>{wingName}</h2>
                     </div>
-                    <div className="space-actions">
-                      {isOwner && (
-                        <button
-                          className="btn secondary"
-                          onClick={() => openModal("edit-space")}
-                        >
-                          <Pencil size={16} />
-                          Edit space
+                  ) : (
+                    <div className="space-summary">
+                      <div>
+                        <h2>{team.name}</h2>
+                        {team.description && <p>{team.description}</p>}
+                        <button className="space-member-link" onClick={() => setView("People")}>
+                          <Users size={15} /> {members.length} {members.length === 1 ? "member" : "members"} <ArrowRight size={14} />
                         </button>
-                      )}
-                      <button className="btn secondary" disabled={busy} onClick={() => openModal("leave-space")}>
-                        <LogOut size={16} /> Leave space
-                      </button>
+                      </div>
+                      <div className="space-actions">
+                        {isOwner && (
+                          <button
+                            className="btn secondary"
+                            onClick={() => openModal("edit-space")}
+                          >
+                            <Pencil size={16} />
+                            Edit space
+                          </button>
+                        )}
+                        <button className="btn secondary" disabled={busy} onClick={() => openModal("leave-space")}>
+                          <LogOut size={16} /> Leave space
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="section-heading">
-                    <h2>{projects.length} {projects.length === 1 ? "project" : "projects"}</h2>
+                    <h2>{wingLanding ? "Wings" : `${projects.length} ${projects.length === 1 ? "project" : "projects"}`}</h2>
                     {isOwner && (
                       <button
                         className="btn primary"
                         onClick={() => openModal("project")}
                       >
                         <Plus size={16} />
-                        {projects.length ? "New project" : "Create first project"}
+                        {team.wings_enabled || projects.length ? "New project" : "Create first project"}
                       </button>
                     )}
                   </div>
-                  {projects.length > 0 && <p className="project-join-note">Join a project to receive task assignments.</p>}
-                  {!projects.length && (
-                    <div className="empty-state compact">
-                      <FolderKanban size={32} />
-                      <h2>{isOwner ? "Create your first project" : "No projects yet"}</h2>
-                      <p>
-                        {isOwner
-                          ? "Give your team's work a name. Each project has its own tasks, meetings, and work plans."
-                          : "Ask your space owner to create the first project. It will appear here when it's ready."}
-                      </p>
-                    </div>
-                  )}
-                  <div className="project-grid">
-                    {projects.map((p) => {
-                      const tasks = (data?.issues ?? []).filter(
-                        (i) => i.project_id === p.id && matchesAssignedDate(i.assigned_date, dateFilter),
-                      );
-                      const done = tasks.filter(
-                        (i) => i.status === "completed",
-                      ).length;
-                      const active = (data?.sprints ?? []).find(
-                        (s) => s.project_id === p.id && s.status === "active",
-                      );
-                      const participants = projectMemberships.filter((m) => m.project_id === p.id);
-                      const joined = participants.some((m) => m.user_id === me.data?.id);
-                      return (
-                        <article
-                          className="project-card"
-                          key={p.id}
-                        >
-                          <button className="project-card-open" onClick={() => switchProject(p.id)} aria-label={`Open ${p.name}`}>
-                            <span className="project-card-top">
-                              <span className="project-context-icon"><FolderKanban size={21} /></span>
-                              <ArrowRight size={17} />
-                            </span>
-                            <span className="project-card-title">{p.name}</span>
-                            {p.description && <span className="project-card-description">{p.description}</span>}
-                            {active && <span className="project-plan"><Zap size={13} />{planLabel(active.name)} · in progress</span>}
-                            <span className="project-card-counts">
-                              <span><b>{tasks.length - done}</b> open</span>
-                              <span><b>{done}</b> done</span>
-                            </span>
-                            <span className="project-card-progress" aria-hidden="true">
-                              <i style={{ width: `${tasks.length ? (done / tasks.length) * 100 : 0}%` }} />
-                            </span>
-                          </button>
-                          <div className="project-card-members">
-                            <button className="btn text" onClick={() => openProjectAction(p, "project-members")} aria-label={`View members of ${p.name}`}><Users size={15} /> {participants.length} {participants.length === 1 ? "member" : "members"}</button>
-                            <button className="btn secondary" disabled={busy} onClick={() => joined ? openProjectAction(p, "leave-project") : joinProject(p)}>
-                              {joined ? "Leave project" : "Join project"}
+                  {wingLanding ? (
+                    <>
+                      <div className="club-wing-grid">
+                        {wingChoices.map(({id, label, icon: Icon}) => {
+                          const count = data.projects.filter((project) => project.wing === id).length;
+                          return (
+                            <button key={id} className="club-wing-card" aria-label={label} onClick={() => switchWing(id)}>
+                              <span className="club-wing-icon"><Icon size={23} /></span>
+                              <span><strong>{label}</strong><small>{count} {count === 1 ? "project" : "projects"}</small></span>
+                              <ArrowRight size={18} aria-hidden="true" />
                             </button>
-                            {isOwner && <button className="btn text remove-member project-remove" onClick={() => openProjectAction(p, "remove-project")} aria-label={`Remove project ${p.name}`} title="Remove project"><Trash2 size={15} /></button>}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
+                          );
+                        })}
+                      </div>
+                      {data.projects.some((project) => !project.wing) && (
+                        <button className="btn text unassigned-projects" onClick={() => switchWing("unassigned")}>
+                          Unassigned projects <ArrowRight size={14} />
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {projects.length > 0 && <p className="project-join-note">Join a project to receive task assignments.</p>}
+                      {!projects.length && (
+                        <div className="empty-state compact">
+                          <FolderKanban size={32} />
+                          <h2>{team.wings_enabled ? "No projects in this wing yet" : isOwner ? "Create your first project" : "No projects yet"}</h2>
+                          <p>
+                            {isOwner
+                              ? "Give your team's work a name. Each project has its own tasks, meetings, and work plans."
+                              : "Ask your space owner to create the first project. It will appear here when it's ready."}
+                          </p>
+                        </div>
+                      )}
+                      <div className="project-grid">
+                        {projects.map((p) => {
+                          const tasks = (data?.issues ?? []).filter(
+                            (i) => i.project_id === p.id && matchesAssignedDate(i.assigned_date, dateFilter),
+                          );
+                          const done = tasks.filter(
+                            (i) => i.status === "completed",
+                          ).length;
+                          const active = (data?.sprints ?? []).find(
+                            (s) => s.project_id === p.id && s.status === "active",
+                          );
+                          const participants = projectMemberships.filter((m) => m.project_id === p.id);
+                          const joined = participants.some((m) => m.user_id === me.data?.id);
+                          return (
+                            <article
+                              className="project-card"
+                              key={p.id}
+                            >
+                              <button className="project-card-open" onClick={() => switchProject(p.id)} aria-label={`Open ${p.name}`}>
+                                <span className="project-card-top">
+                                  <span className="project-context-icon"><FolderKanban size={21} /></span>
+                                  <ArrowRight size={17} />
+                                </span>
+                                <span className="project-card-title">{p.name}</span>
+                                {p.description && <span className="project-card-description">{p.description}</span>}
+                                {active && <span className="project-plan"><Zap size={13} />{planLabel(active.name)} · in progress</span>}
+                                <span className="project-card-counts">
+                                  <span><b>{tasks.length - done}</b> open</span>
+                                  <span><b>{done}</b> done</span>
+                                </span>
+                                <span className="project-card-progress" aria-hidden="true">
+                                  <i style={{ width: `${tasks.length ? (done / tasks.length) * 100 : 0}%` }} />
+                                </span>
+                              </button>
+                              <div className="project-card-members">
+                                <button className="btn text" onClick={() => openProjectAction(p, "project-members")} aria-label={`View members of ${p.name}`}><Users size={15} /> {participants.length} {participants.length === 1 ? "member" : "members"}</button>
+                                <button className="btn secondary" disabled={busy} onClick={() => joined ? openProjectAction(p, "leave-project") : joinProject(p)}>
+                                  {joined ? "Leave project" : "Join project"}
+                                </button>
+                                {isOwner && <button className="btn text remove-member project-remove" onClick={() => openProjectAction(p, "remove-project")} aria-label={`Remove project ${p.name}`} title="Remove project"><Trash2 size={15} /></button>}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </section>
               )}
               {view === "Meetings" && currentProject && teamId && (
@@ -2153,6 +2212,7 @@ export default function TeamPage() {
                       ? { ...old, projects: [...old.projects, project] }
                       : old,
                   );
+                  if (team?.wings_enabled && project.wing) setSelectedWing(project.wing);
                   switchProject(project.id);
                 }, "Project created");
               }}
@@ -2162,6 +2222,15 @@ export default function TeamPage() {
                   A project has its own tasks, progress, and work plans.
                   Everyone in {team?.name} will have access.
                 </p>
+                {team?.wings_enabled && (
+                  <label>
+                    Wing
+                    <select name="wing" aria-label="Wing" required defaultValue={selectedWing === "unassigned" ? "" : selectedWing ?? ""}>
+                      <option value="" disabled>Select a wing</option>
+                      {wingChoices.map(({id, label}) => <option key={id} value={id}>{label}</option>)}
+                    </select>
+                  </label>
+                )}
                 <label>
                   Project name
                   <input

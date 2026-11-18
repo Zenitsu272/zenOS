@@ -104,6 +104,49 @@
   border-color: #c4b4e0;
   box-shadow: 0 4px 16px #3c245510;
 }
+.club-wing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.club-wing-card {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 22px);
+  padding: clamp(18px, 2vw, 28px);
+  text-align: left;
+  border: 1px solid var(--view-border);
+  border-radius: 14px;
+  background: white;
+  color: var(--view-ink);
+  box-shadow: 0 1px 3px #281f3b08;
+}
+.club-wing-card:hover {
+  border-color: #b8a4da;
+  background: #fcfaff;
+  box-shadow: 0 4px 14px #3c245510;
+}
+.club-wing-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  color: var(--view-purple);
+  background: #f0eafa;
+}
+.club-wing-card strong { font-size: 18px; letter-spacing: -.025em; line-height: 1.2; }
+.club-wing-card small { display: block; margin-top: 4px; font-size: 13px; color: var(--view-muted); }
+.club-wing-card > svg { margin-left: auto; color: var(--view-purple); flex: none; }
+.projects-overview .unassigned-projects { margin-top: 12px; }
+.wing-overview-heading { margin: 4px 0 22px; }
+.wing-overview-heading .btn { padding-inline: 0; }
+.wing-overview-heading h2 { margin: 5px 0; font-size: 25px; font-weight: 650; letter-spacing: -.035em; }
+.breadcrumb .wing-crumb { color: #664aad; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 680px) {
+  .club-wing-grid { grid-template-columns: 1fr; gap: 10px; }
+}
 .projects-overview .project-card-open {
   flex: 1;
   display: flex;

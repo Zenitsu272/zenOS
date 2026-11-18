@@ -4,6 +4,8 @@ zenOS is a shared space for organizing projects and getting work done together. 
 
 ## Spaces, projects, and access
 
+In the Intel IoT Club, open **Projects**, choose **AI Wing** or **Physical AI Wing**, then select a project to enter its board. The space owner chooses a wing when creating a project.
+
 The structure is **Space → Projects → Tasks and work plans**. For example, a company space can contain a Website project and an Events project, each with a separate To do / Doing / Done board. New spaces start without projects; the owner creates the first project. Unused automatic General projects are removed during migration. General projects containing tasks, work plans, or meetings remain available with their history.
 
 One person creates and owns each space. The owner can edit the space's name and description, create projects, manage work plans, share or replace the invite link, and remove people. Changing the space's details preserves its projects, people, owner, key, and existing invite link. Members can view every project in the space and create, assign, update, upload, and discuss tasks. Members cannot edit space settings, create projects, manage invitations, remove people, or become owners by joining. Access is controlled at the space level; there are no private projects within a shared space.

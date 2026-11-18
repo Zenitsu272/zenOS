@@ -1,5 +1,6 @@
 export type Status =
   "backlog" | "scheduled" | "ongoing" | "review" | "completed";
+export type ProjectWing = "ai" | "physical_ai";
 export type Team = {
   id: number;
   name: string;
@@ -9,12 +10,14 @@ export type Team = {
   owner_id: number;
   invite_code: string | null;
   invite_expires_at: string | null;
+  wings_enabled?: boolean;
 };
 export type Project = {
   id: number;
   team_id: number;
   name: string;
   description: string;
+  wing?: ProjectWing | null;
 };
 export type Member = { id: number; email: string; role: string };
 export type Sprint = {
